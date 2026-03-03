@@ -157,3 +157,58 @@ export interface ServerStatus {
   latest_round: number | null;
   latest_date: string | null;
 }
+
+// ───────── 백테스팅 ─────────
+export interface StrategyInfo {
+  name: string;
+  label: string;
+}
+
+export interface HitRound {
+  round: number;
+  draw_date: string;
+  rank: number;
+  actual: number[];
+  bonus: number;
+}
+
+export interface StrategyResult {
+  label: string;
+  rank_counts: Record<string, number>;
+  hit_rounds: HitRound[];
+  total_spent: number;
+  total_prize: number;
+  roi: number;
+  score: number;
+  hit_count: number;
+}
+
+export interface BacktestResult {
+  window: number;
+  games_per_pick: number;
+  total_rounds: number;
+  strategies: Record<string, StrategyResult>;
+  ranking: string[];
+}
+
+export interface BacktestCumulativeResult {
+  rounds: number[];
+  series: Record<string, number[]>;
+  labels: Record<string, string>;
+}
+
+export interface BacktestSimulateResult {
+  strategy: string;
+  label: string;
+  window: number;
+  games_per_pick: number;
+  total_rounds: number;
+  total_spent: number;
+  total_prize: number;
+  net: number;
+  roi: number;
+  rank_counts: Record<string, number>;
+  hit_count: number;
+  hit_rounds: HitRound[];
+  score: number;
+}

@@ -10,6 +10,10 @@ import type {
   RecommendResult,
   AllRecommendResult,
   ServerStatus,
+  StrategyInfo,
+  BacktestResult,
+  BacktestCumulativeResult,
+  BacktestSimulateResult,
 } from '../types';
 
 // ───────── 상태 ─────────
@@ -99,3 +103,30 @@ export const recommend = (params: {
   recent_n?: number;
 }): Promise<AllRecommendResult | RecommendResult> =>
   client.post('/recommend', params).then(r => r.data);
+
+// ───────── 백테스팅 ─────────
+export const fetchBacktestStrategies = (): Promise<{ strategies: StrategyInfo[] }> =>
+  client.get('/backtest/strategies').then(r => r.data);
+
+export const runBacktest = (params: {
+  window?: number;
+  games_per_pick?: number;
+  strategies?: string[];
+  sample_every?: number;
+}): Promise<BacktestResult> =>
+  client.post('/backtest/run', params).then(r => r.data);
+
+export const runBacktestCumulative = (params: {
+  window?: number;
+  games_per_pick?: number;
+  strategies?: string[];
+  sample_every?: number;
+}): Promise<BacktestCumulativeResult> =>
+  client.post('/backtest/cumulative', params).then(r => r.data);
+
+export const runBacktestSimulate = (params: {
+  strategy: string;
+  window?: number;
+  games_per_pick?: number;
+}): Promise<BacktestSimulateResult> =>
+  client.post('/backtest/simulate', params).then(r => r.data);

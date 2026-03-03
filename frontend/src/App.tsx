@@ -5,6 +5,7 @@ import DrawsPage from './pages/DrawsPage';
 import StatsPage from './pages/StatsPage';
 import TrendPage from './pages/TrendPage';
 import SimulatePage from './pages/SimulatePage';
+import BacktestPage from './pages/BacktestPage';
 import RecommendPage from './pages/RecommendPage';
 import CollectPage from './pages/CollectPage';
 import './App.css';
@@ -22,6 +23,7 @@ export default function App() {
             <Route path="/stats" element={<StatsPage />} />
             <Route path="/trend" element={<TrendPage />} />
             <Route path="/simulate" element={<SimulatePage />} />
+            <Route path="/backtest" element={<BacktestPage />} />
             <Route path="/recommend" element={<RecommendPage />} />
             <Route path="/collect" element={<CollectPage />} />
           </Routes>
