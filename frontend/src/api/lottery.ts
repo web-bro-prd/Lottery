@@ -10,10 +10,11 @@ import type {
   RecommendResult,
   AllRecommendResult,
   ServerStatus,
-  StrategyInfo,
+  BacktestMethodsResponse,
   BacktestResult,
   BacktestCumulativeResult,
-  BacktestSimulateResult,
+  BacktestRecommendResult,
+  FixedNumberResult,
 } from '../types';
 
 // ───────── 상태 ─────────
@@ -105,28 +106,30 @@ export const recommend = (params: {
   client.post('/recommend', params).then(r => r.data);
 
 // ───────── 백테스팅 ─────────
-export const fetchBacktestStrategies = (): Promise<{ strategies: StrategyInfo[] }> =>
-  client.get('/backtest/strategies').then(r => r.data);
+export const fetchBacktestMethods = (): Promise<BacktestMethodsResponse> =>
+  client.get('/backtest/methods').then(r => r.data);
 
 export const runBacktest = (params: {
   window?: number;
-  games_per_pick?: number;
-  strategies?: string[];
+  methods?: string[];
   sample_every?: number;
 }): Promise<BacktestResult> =>
   client.post('/backtest/run', params).then(r => r.data);
 
 export const runBacktestCumulative = (params: {
   window?: number;
-  games_per_pick?: number;
-  strategies?: string[];
+  methods?: string[];
   sample_every?: number;
 }): Promise<BacktestCumulativeResult> =>
   client.post('/backtest/cumulative', params).then(r => r.data);
 
-export const runBacktestSimulate = (params: {
-  strategy: string;
+export const runBacktestRecommend = (params: {
+  method: string;
   window?: number;
-  games_per_pick?: number;
-}): Promise<BacktestSimulateResult> =>
-  client.post('/backtest/simulate', params).then(r => r.data);
+  n_games?: number;
+  condition_weights?: Record<string, number>;
+}): Promise<BacktestRecommendResult> =>
+  client.post('/backtest/recommend', params).then(r => r.data);
+
+export const fetchFixedNumber = (): Promise<FixedNumberResult> =>
+  client.get('/backtest/fixed').then(r => r.data);

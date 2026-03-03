@@ -1,15 +1,17 @@
 import { useState, useEffect } from 'react';
 import {
-  fetchBacktestStrategies,
+  fetchBacktestMethods,
   runBacktest,
   runBacktestCumulative,
-  runBacktestSimulate,
+  runBacktestRecommend,
+  fetchFixedNumber,
 } from '../api/lottery';
 import type {
-  StrategyInfo,
+  BacktestMethodsResponse,
   BacktestResult,
   BacktestCumulativeResult,
-  BacktestSimulateResult,
+  BacktestRecommendResult,
+  FixedNumberResult,
 } from '../types';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -18,144 +20,162 @@ import {
 import LottoBall from '../components/LottoBall';
 import './BacktestPage.css';
 
-const RANK_COLORS: Record<number, string> = {
-  1: '#e74c3c', 2: '#e67e22', 3: '#f1c40f', 4: '#2ecc71', 5: '#3498db',
+const METHOD_COLORS: Record<string, string> = {
+  FREQUENCY:       '#3498db',
+  WEIGHTED_RECENT: '#e74c3c',
+  CYCLE:           '#2ecc71',
+  TREND:           '#f39c12',
+  ENSEMBLE:        '#9b59b6',
 };
-const LINE_COLORS = [
-  '#e74c3c', '#3498db', '#2ecc71', '#f39c12',
-  '#9b59b6', '#1abc9c', '#e67e22',
-];
 
-function formatWon(n: number): string {
-  if (Math.abs(n) >= 100_000_000) return `${(n / 100_000_000).toFixed(1)}억`;
-  if (Math.abs(n) >= 10_000) return `${Math.round(n / 10_000).toLocaleString()}만`;
-  return n.toLocaleString();
-}
+const METHOD_DESC: Record<string, string> = {
+  FREQUENCY:       '과거 전체 최빈 조건',
+  WEIGHTED_RECENT: '최근 20%에 3배 가중치 ★',
+  CYCLE:           '최근 10회 모드',
+  TREND:           '최근 상승 추세 조건',
+  ENSEMBLE:        '4가지 다수결',
+};
 
 export default function BacktestPage() {
-  const [strategies, setStrategies] = useState<StrategyInfo[]>([]);
+  const [meta, setMeta] = useState<BacktestMethodsResponse | null>(null);
 
   // 설정
-  const [window_, setWindow] = useState(50);
-  const [games, setGames] = useState(5);
-  const [selectedStrategies, setSelectedStrategies] = useState<string[]>([]);
+  const [window_, setWindow] = useState(600);
+  const [selectedMethods, setSelectedMethods] = useState<string[]>([]);
+  const [simMethod, setSimMethod] = useState('WEIGHTED_RECENT');
+  const [nGames, setNGames] = useState(20);
 
-  // 백테스팅 결과
-  const [backtestResult, setBacktestResult] = useState<BacktestResult | null>(null);
-  const [cumulativeResult, setCumulativeResult] = useState<BacktestCumulativeResult | null>(null);
+  // 결과
+  const [btResult, setBtResult] = useState<BacktestResult | null>(null);
+  const [cumResult, setCumResult] = useState<BacktestCumulativeResult | null>(null);
+  const [recResult, setRecResult] = useState<BacktestRecommendResult | null>(null);
+
+  const [fixedResult, setFixedResult] = useState<FixedNumberResult | null>(null);
+  const [fixedLoading, setFixedLoading] = useState(false);
+  const [fixedError, setFixedError] = useState('');
+
   const [btLoading, setBtLoading] = useState(false);
+  const [recLoading, setRecLoading] = useState(false);
   const [btError, setBtError] = useState('');
-
-  // 시뮬레이션 결과
-  const [simStrategy, setSimStrategy] = useState('');
-  const [simResult, setSimResult] = useState<BacktestSimulateResult | null>(null);
-  const [simLoading, setSimLoading] = useState(false);
-  const [simError, setSimError] = useState('');
+  const [recError, setRecError] = useState('');
 
   useEffect(() => {
-    fetchBacktestStrategies().then(r => {
-      setStrategies(r.strategies);
-      setSelectedStrategies(r.strategies.map(s => s.name));
+    fetchBacktestMethods().then(r => {
+      setMeta(r);
+      setSelectedMethods(r.methods);
     });
   }, []);
 
-  const toggleStrategy = (name: string) => {
-    setSelectedStrategies(prev =>
-      prev.includes(name) ? prev.filter(s => s !== name) : [...prev, name]
+  const toggleMethod = (m: string) =>
+    setSelectedMethods(prev =>
+      prev.includes(m) ? prev.filter(x => x !== m) : [...prev, m]
     );
-  };
 
   const handleRunBacktest = async () => {
-    if (selectedStrategies.length === 0) return;
+    if (selectedMethods.length === 0) return;
     setBtLoading(true);
     setBtError('');
-    setBacktestResult(null);
-    setCumulativeResult(null);
-    setSimResult(null);
+    setBtResult(null);
+    setCumResult(null);
+    setRecResult(null);
     try {
       const [bt, cum] = await Promise.all([
-        runBacktest({ window: window_, games_per_pick: games, strategies: selectedStrategies }),
-        runBacktestCumulative({ window: window_, games_per_pick: games, strategies: selectedStrategies, sample_every: 10 }),
+        runBacktest({ window: window_, methods: selectedMethods }),
+        runBacktestCumulative({ window: window_, methods: selectedMethods, sample_every: 10 }),
       ]);
-      setBacktestResult(bt);
-      setCumulativeResult(cum);
-      // 1위 기법 자동 선택
-      if (bt.ranking.length > 0) setSimStrategy(bt.ranking[0]);
+      setBtResult(bt);
+      setCumResult(cum);
+      setSimMethod(bt.best_method);
     } catch {
-      setBtError('백테스팅 실행 실패. 데이터를 먼저 수집하세요.');
+      setBtError('백테스팅 실패. 데이터를 먼저 수집하세요.');
     } finally {
       setBtLoading(false);
     }
   };
 
-  const handleRunSimulate = async () => {
-    if (!simStrategy) return;
-    setSimLoading(true);
-    setSimError('');
-    setSimResult(null);
+  const handleRecommend = async () => {
+    setRecLoading(true);
+    setRecError('');
+    setRecResult(null);
     try {
-      const r = await runBacktestSimulate({ strategy: simStrategy, window: window_, games_per_pick: games });
-      setSimResult(r);
+      const r = await runBacktestRecommend({ method: simMethod, window: window_, n_games: nGames });
+      setRecResult(r);
     } catch {
-      setSimError('시뮬레이션 실패');
+      setRecError('번호 추천 실패');
     } finally {
-      setSimLoading(false);
+      setRecLoading(false);
     }
   };
 
-  // 누적 차트 데이터
-  const chartData = cumulativeResult
-    ? cumulativeResult.rounds.map((round, i) => {
-        const point: Record<string, number> = { round };
-        for (const name of Object.keys(cumulativeResult.series)) {
-          point[name] = cumulativeResult.series[name][i] ?? 0;
-        }
-        return point;
-      })
+  const handleFixedNumber = async () => {
+    setFixedLoading(true);
+    setFixedError('');
+    setFixedResult(null);
+    try {
+      const r = await fetchFixedNumber();
+      setFixedResult(r);
+    } catch {
+      setFixedError('고정번호 발급 실패. 데이터를 먼저 수집하세요.');
+    } finally {
+      setFixedLoading(false);
+    }
+  };
+
+  // 조건별 정확도 차트 데이터
+  const condAccData = btResult
+    ? Object.entries(btResult.condition_accuracy_avg)
+        .map(([key, acc]) => ({
+          key,
+          label: btResult.condition_labels[key] ?? key,
+          avg: acc,
+          best: btResult.methods[btResult.best_method]?.condition_accuracy[key] ?? 0,
+        }))
+        .sort((a, b) => b.best - a.best)
     : [];
 
-  // 기법 비교 바 차트 데이터
-  const rankingData = backtestResult
-    ? backtestResult.ranking.map(name => ({
-        name: backtestResult.strategies[name].label,
-        key: name,
-        score: backtestResult.strategies[name].score,
-        hit: backtestResult.strategies[name].hit_count,
-        roi: backtestResult.strategies[name].roi,
-      }))
+  // 누적 정확도 차트 데이터
+  const cumChartData = cumResult
+    ? cumResult.rounds.map((round, i) => {
+        const pt: Record<string, number> = { round };
+        for (const m of Object.keys(cumResult.series)) {
+          pt[m] = cumResult.series[m][i] ?? 0;
+        }
+        return pt;
+      })
     : [];
 
   return (
     <div className="backtest-page">
-      <h1 className="page-title">백테스팅 &amp; 기법 시뮬레이션</h1>
+      <h1 className="page-title">백테스팅 &amp; 번호 추천</h1>
       <p className="page-desc">
-        역대 회차 데이터로 번호 예측 기법들을 검증하고, 가장 성과가 좋은 기법으로 전체 시뮬레이션을 실행합니다.
+        13개 조건 × 5가지 예측 방법으로 역대 회차를 검증하고, 가장 정확한 방법으로 다음 회차 번호를 추천합니다.
       </p>
 
       {/* ── STEP 1: 설정 ── */}
       <section className="section bt-config-section">
         <h2 className="section-title">STEP 1 — 백테스팅 설정</h2>
+        <p className="section-desc">
+          학습 윈도우: 처음 N회차 데이터로 조건 패턴을 학습하고, 이후 회차에서 예측합니다.
+          기존 분석 보고서 기준은 600회입니다.
+        </p>
         <div className="config-row">
           <label>
             학습 윈도우 (회차)
-            <input type="number" min={10} max={500} value={window_}
+            <input type="number" min={50} max={1200} value={window_}
               onChange={e => setWindow(Number(e.target.value))} />
-          </label>
-          <label>
-            회차당 예측 게임
-            <input type="number" min={1} max={20} value={games}
-              onChange={e => setGames(Number(e.target.value))} />
           </label>
         </div>
 
         <div className="strategy-toggle-row">
-          {strategies.map(s => (
+          {(meta?.methods ?? []).map(m => (
             <button
-              key={s.name}
-              className={`strategy-chip ${selectedStrategies.includes(s.name) ? 'active' : ''}`}
-              onClick={() => toggleStrategy(s.name)}
+              key={m}
+              className={`strategy-chip ${selectedMethods.includes(m) ? 'active' : ''}`}
+              style={selectedMethods.includes(m) ? { background: METHOD_COLORS[m], borderColor: METHOD_COLORS[m] } : {}}
+              onClick={() => toggleMethod(m)}
+              title={METHOD_DESC[m]}
             >
-              {s.label}
+              {m}
             </button>
           ))}
         </div>
@@ -163,121 +183,87 @@ export default function BacktestPage() {
         <button
           className="btn-primary bt-run-btn"
           onClick={handleRunBacktest}
-          disabled={btLoading || selectedStrategies.length === 0}
+          disabled={btLoading || selectedMethods.length === 0}
         >
-          {btLoading ? '백테스팅 실행 중... (수초 소요)' : '백테스팅 실행'}
+          {btLoading ? '백테스팅 실행 중... (수십 초 소요)' : '백테스팅 실행'}
         </button>
         {btError && <div className="error-msg">{btError}</div>}
       </section>
 
       {/* ── STEP 2: 백테스팅 결과 ── */}
-      {backtestResult && (
+      {btResult && (
         <>
           <section className="section">
             <h2 className="section-title">
               STEP 2 — 백테스팅 결과
               <span className="section-sub">
-                {backtestResult.total_rounds}회차 검증 · 윈도우 {backtestResult.window}회 · 회차당 {backtestResult.games_per_pick}게임
+                {btResult.total_tested}회차 검증 · 윈도우 {btResult.window}회
               </span>
             </h2>
 
-            {/* 기법 랭킹 테이블 */}
-            <div className="ranking-table-wrap">
-              <table className="ranking-table">
-                <thead>
-                  <tr>
-                    <th>순위</th>
-                    <th>기법</th>
-                    <th>스코어</th>
-                    <th>적중 횟수</th>
-                    <th>5등</th>
-                    <th>4등</th>
-                    <th>3등</th>
-                    <th>2등</th>
-                    <th>1등</th>
-                    <th>ROI</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {backtestResult.ranking.map((name, idx) => {
-                    const s = backtestResult.strategies[name];
-                    return (
-                      <tr
-                        key={name}
-                        className={`ranking-row ${simStrategy === name ? 'selected' : ''}`}
-                        onClick={() => setSimStrategy(name)}
-                        title="클릭하여 시뮬레이션 기법으로 선택"
-                      >
-                        <td className="rank-badge-cell">
-                          <span className={`rank-badge rank-${idx + 1}`}>{idx + 1}</span>
-                        </td>
-                        <td className="strategy-name-cell">
-                          {s.label}
-                          {simStrategy === name && <span className="selected-tag">선택됨</span>}
-                        </td>
-                        <td className="score-cell">{s.score.toLocaleString()}</td>
-                        <td>{s.hit_count}</td>
-                        <td>{s.rank_counts['5'] ?? 0}</td>
-                        <td>{s.rank_counts['4'] ?? 0}</td>
-                        <td>{s.rank_counts['3'] ?? 0}</td>
-                        <td>{s.rank_counts['2'] ?? 0}</td>
-                        <td className={s.rank_counts['1'] > 0 ? 'hit-1st' : ''}>
-                          {s.rank_counts['1'] ?? 0}
-                        </td>
-                        <td className={s.roi >= 0 ? 'positive' : 'negative'}>{s.roi}%</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-              <p className="table-hint">행을 클릭하면 해당 기법으로 시뮬레이션 기법이 선택됩니다.</p>
+            {/* 예측 방법 랭킹 */}
+            <h3 className="chart-subtitle">예측 방법별 평균 정확도</h3>
+            <div className="method-ranking">
+              {btResult.ranking.map(([method, acc], idx) => (
+                <div
+                  key={method}
+                  className={`method-card ${simMethod === method ? 'selected' : ''}`}
+                  onClick={() => setSimMethod(method)}
+                  style={{ borderTop: `4px solid ${METHOD_COLORS[method] ?? '#aaa'}` }}
+                >
+                  <div className="method-rank">#{idx + 1}</div>
+                  <div className="method-name">{method}</div>
+                  <div className="method-desc">{METHOD_DESC[method] ?? ''}</div>
+                  <div className="method-acc" style={{ color: METHOD_COLORS[method] }}>
+                    {acc.toFixed(2)}%
+                  </div>
+                  {simMethod === method && <div className="selected-tag">선택됨</div>}
+                </div>
+              ))}
             </div>
+            <p className="table-hint">카드를 클릭하면 STEP 3 번호 추천에 사용할 방법이 선택됩니다.</p>
 
-            {/* 스코어 바 차트 */}
-            <h3 className="chart-subtitle">기법별 스코어 비교</h3>
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={rankingData} layout="vertical" margin={{ left: 20 }}>
+            {/* 조건별 정확도 바 차트 */}
+            <h3 className="chart-subtitle">
+              조건별 정확도 — {btResult.best_method}(★최고) vs 전체 평균
+            </h3>
+            <ResponsiveContainer width="100%" height={320}>
+              <BarChart data={condAccData} layout="vertical" margin={{ left: 10, right: 30 }}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis type="number" tick={{ fontSize: 11 }} />
-                <YAxis type="category" dataKey="name" tick={{ fontSize: 12 }} width={75} />
-                <Tooltip formatter={(v: number) => [v.toLocaleString(), '스코어']} />
-                <Bar dataKey="score" name="스코어" radius={[0, 4, 4, 0]}>
-                  {rankingData.map((entry, idx) => (
-                    <Cell
-                      key={entry.key}
-                      fill={entry.key === simStrategy ? '#e74c3c' : LINE_COLORS[idx % LINE_COLORS.length]}
-                    />
-                  ))}
-                </Bar>
+                <XAxis type="number" unit="%" tick={{ fontSize: 11 }} domain={[0, 60]} />
+                <YAxis type="category" dataKey="label" tick={{ fontSize: 12 }} width={90} />
+                <Tooltip formatter={(v: number) => [`${v.toFixed(1)}%`]} />
+                <Legend />
+                <Bar dataKey="best" name={`${btResult.best_method}`} fill={METHOD_COLORS[btResult.best_method] ?? '#e74c3c'} radius={[0, 4, 4, 0]} />
+                <Bar dataKey="avg" name="전체 평균" fill="#bdc3c7" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </section>
 
-          {/* 누적 성과 라인 차트 */}
-          {cumulativeResult && chartData.length > 0 && (
+          {/* 누적 정확도 추이 */}
+          {cumResult && cumChartData.length > 0 && (
             <section className="section">
-              <h2 className="section-title">기법별 누적 스코어 추이</h2>
+              <h2 className="section-title">예측 방법별 누적 정확도 추이</h2>
               <p className="section-desc">
-                회차가 진행되면서 각 기법의 누적 점수가 어떻게 쌓이는지 확인합니다.
-                기울기가 가파를수록 꾸준히 좋은 성과를 내는 기법입니다.
+                회차가 쌓일수록 각 방법의 평균 정확도가 어떻게 변화하는지 보여줍니다.
+                안정적으로 수렴하는 방법이 신뢰도가 높습니다.
               </p>
-              <ResponsiveContainer width="100%" height={320}>
-                <LineChart data={chartData}>
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={cumChartData}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="round" tick={{ fontSize: 11 }} label={{ value: '회차', position: 'insideBottomRight', offset: -4 }} />
-                  <YAxis tick={{ fontSize: 11 }} />
-                  <Tooltip />
+                  <YAxis tick={{ fontSize: 11 }} unit="%" />
+                  <Tooltip formatter={(v: number) => [`${v.toFixed(2)}%`]} />
                   <Legend />
-                  {Object.keys(cumulativeResult.series).map((name, idx) => (
+                  {Object.keys(cumResult.series).map(m => (
                     <Line
-                      key={name}
+                      key={m}
                       type="monotone"
-                      dataKey={name}
-                      name={cumulativeResult.labels[name]}
-                      stroke={LINE_COLORS[idx % LINE_COLORS.length]}
+                      dataKey={m}
+                      name={m}
+                      stroke={METHOD_COLORS[m] ?? '#888'}
                       dot={false}
-                      strokeWidth={name === simStrategy ? 3 : 1.5}
-                      strokeDasharray={name === simStrategy ? undefined : ''}
+                      strokeWidth={m === simMethod ? 3 : 1.5}
                     />
                   ))}
                 </LineChart>
@@ -285,124 +271,152 @@ export default function BacktestPage() {
             </section>
           )}
 
-          {/* ── STEP 3: 시뮬레이션 실행 ── */}
+          {/* ── STEP 3: 번호 추천 ── */}
           <section className="section bt-sim-section">
-            <h2 className="section-title">STEP 3 — 기법 선택 후 시뮬레이션</h2>
+            <h2 className="section-title">STEP 3 — 예측 조건 기반 번호 추천</h2>
             <p className="section-desc">
-              백테스팅 결과에서 기법을 선택(테이블 행 클릭)하고 전체 회차 시뮬레이션을 실행합니다.
+              선택한 방법으로 다음 회차의 조건(홀짝 비율, 연속번호 등)을 예측한 뒤,
+              해당 조건을 가장 잘 만족하는 번호 조합을 생성합니다.
             </p>
 
             <div className="sim-strategy-selector">
-              {backtestResult.ranking.map(name => (
+              {btResult.ranking.map(([m]) => (
                 <button
-                  key={name}
-                  className={`strategy-chip ${simStrategy === name ? 'active' : ''}`}
-                  onClick={() => setSimStrategy(name)}
+                  key={m}
+                  className={`strategy-chip ${simMethod === m ? 'active' : ''}`}
+                  style={simMethod === m ? { background: METHOD_COLORS[m], borderColor: METHOD_COLORS[m] } : {}}
+                  onClick={() => setSimMethod(m)}
                 >
-                  {backtestResult.strategies[name].label}
+                  {m}
                 </button>
               ))}
             </div>
 
-            <button
-              className="btn-primary"
-              onClick={handleRunSimulate}
-              disabled={simLoading || !simStrategy}
-            >
-              {simLoading
-                ? '시뮬레이션 실행 중...'
-                : simStrategy
-                  ? `"${backtestResult.strategies[simStrategy]?.label}" 시뮬레이션 실행`
-                  : '기법을 선택하세요'}
-            </button>
-            {simError && <div className="error-msg">{simError}</div>}
+            <div className="config-row" style={{ marginTop: 12 }}>
+              <label>
+                추천 게임 수
+                <input type="number" min={5} max={50} value={nGames}
+                  onChange={e => setNGames(Number(e.target.value))} />
+              </label>
+              <button className="btn-primary" onClick={handleRecommend} disabled={recLoading}>
+                {recLoading ? '번호 생성 중...' : `"${simMethod}" 방법으로 ${nGames}게임 추천`}
+              </button>
+            </div>
+            {recError && <div className="error-msg">{recError}</div>}
           </section>
         </>
       )}
 
-      {/* ── 시뮬레이션 결과 ── */}
-      {simResult && (
-        <section className="section">
-          <h2 className="section-title">
-            시뮬레이션 결과 — {simResult.label}
-            <span className="section-sub">
-              {simResult.total_rounds}회차 · 윈도우 {simResult.window}회 · 회차당 {simResult.games_per_pick}게임
-            </span>
-          </h2>
+      {/* ── STEP 4: 고정번호 발급 ── */}
+      <section className="section fixed-section">
+        <h2 className="section-title">STEP 4 — 매주 고정 구매 번호 발급</h2>
+        <p className="section-desc">
+          역대 <strong>전체 회차의 조건 최빈값</strong>을 산출하여, 가장 자주 등장한 구조를 가진 번호 1조를 발급합니다.
+          꾸준히 같은 번호를 구매할 때 장기적으로 커버 확률이 최대화되는 조합입니다.
+        </p>
+        <div className="fixed-strategy-box">
+          <div className="fixed-strategy-item">✅ 홀짝 비율 — 역대 최빈 패턴</div>
+          <div className="fixed-strategy-item">✅ 고저 분포 — 역대 최빈 패턴</div>
+          <div className="fixed-strategy-item">✅ 합계 — 역대 중앙값 ±25 범위</div>
+          <div className="fixed-strategy-item">✅ AC값 4 이상 — 번호 간격 다양성 확보</div>
+          <div className="fixed-strategy-item">✅ 끝자리 중복 최소화</div>
+          <div className="fixed-strategy-item">✅ 연속번호 최대 1쌍</div>
+        </div>
+        <button
+          className="btn-fixed"
+          onClick={handleFixedNumber}
+          disabled={fixedLoading}
+        >
+          {fixedLoading ? '번호 산출 중...' : '고정번호 발급받기'}
+        </button>
+        {fixedError && <div className="error-msg">{fixedError}</div>}
 
-          {/* 요약 카드 */}
-          <div className="stat-cards">
-            <div className="stat-card">
-              <div className="stat-label">총 지출</div>
-              <div className="stat-value">{formatWon(simResult.total_spent)}원</div>
+        {fixedResult && (
+          <div className="fixed-result">
+            <div className="fixed-balls-row">
+              {fixedResult.numbers.map(n => (
+                <LottoBall key={n} number={n} size="lg" />
+              ))}
             </div>
-            <div className="stat-card">
-              <div className="stat-label">총 당첨금</div>
-              <div className="stat-value">{formatWon(simResult.total_prize)}원</div>
+            <div className="fixed-score">
+              조건 부합도 {(fixedResult.score * 100).toFixed(0)}%
             </div>
-            <div className="stat-card">
-              <div className="stat-label">순손익</div>
-              <div className={`stat-value ${simResult.net >= 0 ? 'positive' : 'negative'}`}>
-                {formatWon(simResult.net)}원
-              </div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-label">ROI</div>
-              <div className={`stat-value ${simResult.roi >= 0 ? 'positive' : 'negative'}`}>
-                {simResult.roi}%
-              </div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-label">총 적중 횟수</div>
-              <div className="stat-value">{simResult.hit_count}회</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-label">스코어</div>
-              <div className="stat-value">{simResult.score.toLocaleString()}</div>
-            </div>
-          </div>
 
-          {/* 등수별 분포 */}
-          <h3 className="chart-subtitle">등수별 적중 횟수</h3>
-          <div className="rank-summary">
-            {[1, 2, 3, 4, 5].map(rank => (
-              <div key={rank} className="rank-item" style={{ borderTop: `3px solid ${RANK_COLORS[rank]}` }}>
-                <span className="rank-label">{rank}등</span>
-                <span className="rank-count">{simResult.rank_counts[String(rank)] ?? 0}회</span>
-              </div>
-            ))}
-            <div className="rank-item" style={{ borderTop: '3px solid #bbb' }}>
-              <span className="rank-label">미당첨</span>
-              <span className="rank-count">{simResult.rank_counts['0'] ?? 0}회</span>
+            <h3 className="chart-subtitle">선택 근거</h3>
+            <div className="fixed-rationale">
+              {Object.entries(fixedResult.rationale).map(([key, desc]) => (
+                <div key={key} className="rationale-item">
+                  <span className="rationale-icon">📌</span>
+                  <span>{desc}</span>
+                </div>
+              ))}
             </div>
-          </div>
 
-          {/* 적중 회차 목록 */}
-          {simResult.hit_rounds.length > 0 && (
-            <>
-              <h3 className="chart-subtitle">적중 회차 (최근 50개)</h3>
-              <div className="hit-rounds-list">
-                {simResult.hit_rounds.slice().reverse().map((hr, i) => (
-                  <div key={i} className={`hit-round-item rank-${hr.rank}`}>
-                    <div className="hit-round-meta">
-                      <span className="hit-round-no">{hr.round}회</span>
-                      <span className="hit-round-date">{hr.draw_date}</span>
-                      <span className="hit-rank-badge" style={{ background: RANK_COLORS[hr.rank] }}>
-                        {hr.rank}등
+            <h3 className="chart-subtitle">이 번호의 조건 상세</h3>
+            <div className="predicted-conds">
+              {Object.entries(fixedResult.all_conditions)
+                .filter(([k]) => fixedResult.condition_labels[k])
+                .map(([key, val]) => {
+                  const target = fixedResult.target_conditions[key];
+                  const matched = val === target;
+                  return (
+                    <div key={key} className={`pred-cond-item ${matched ? 'matched' : 'unmatched'}`}>
+                      <span className="pred-cond-label">
+                        {fixedResult.condition_labels[key]}
+                      </span>
+                      <span className="pred-cond-value">
+                        {val}
+                        {matched
+                          ? <span className="match-tag">✓ 최빈값</span>
+                          : <span className="unmatch-tag">최빈: {target}</span>
+                        }
                       </span>
                     </div>
-                    <div className="hit-round-balls">
-                      {hr.actual.map(n => (
-                        <LottoBall key={n} number={n} size="sm" />
-                      ))}
-                      <span className="bonus-sep">+</span>
-                      <LottoBall number={hr.bonus} bonus size="sm" />
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* ── 추천 번호 결과 ── */}
+      {recResult && (
+        <section className="section">
+          <h2 className="section-title">
+            추천 번호 — {recResult.method}
+            <span className="section-sub">윈도우 {recResult.window}회 · {recResult.n_games}게임</span>
+          </h2>
+
+          {/* 예측된 조건 */}
+          <h3 className="chart-subtitle">예측된 다음 회차 조건</h3>
+          <div className="predicted-conds">
+            {Object.entries(recResult.predicted_conditions).map(([key, val]) => (
+              <div key={key} className="pred-cond-item">
+                <span className="pred-cond-label">
+                  {recResult.condition_labels[key] ?? key}
+                </span>
+                <span className="pred-cond-value">{val}</span>
               </div>
-            </>
-          )}
+            ))}
+          </div>
+
+          {/* 추천 번호 목록 */}
+          <h3 className="chart-subtitle">추천 번호 (조건 부합도 순)</h3>
+          <div className="rec-games-list">
+            {recResult.games.map((game, i) => (
+              <div key={i} className="rec-game-row">
+                <span className="rec-game-no">{i + 1}</span>
+                <div className="rec-game-balls">
+                  {game.map(n => (
+                    <LottoBall key={n} number={n} size="md" />
+                  ))}
+                </div>
+                <span className="rec-game-score">
+                  적합도 {(recResult.scores[i] * 100).toFixed(0)}%
+                </span>
+              </div>
+            ))}
+          </div>
         </section>
       )}
     </div>

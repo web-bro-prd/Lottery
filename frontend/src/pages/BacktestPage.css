@@ -257,6 +257,189 @@
 
 .bonus-sep { font-size: 14px; color: #aaa; margin: 0 2px; }
 
+/* ── 예측 방법 카드 ── */
+.method-ranking {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.method-card {
+  flex: 1;
+  min-width: 140px;
+  max-width: 200px;
+  background: #fff;
+  border-radius: 10px;
+  padding: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+  cursor: pointer;
+  transition: transform 0.1s, box-shadow 0.1s;
+  position: relative;
+}
+
+.method-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
+.method-card.selected { box-shadow: 0 0 0 2px #e74c3c, 0 4px 12px rgba(0,0,0,0.1); }
+
+.method-rank { font-size: 11px; color: #aaa; margin-bottom: 4px; }
+.method-name { font-size: 13px; font-weight: 700; color: #1a1a2e; margin-bottom: 4px; }
+.method-desc { font-size: 11px; color: #888; margin-bottom: 8px; line-height: 1.4; }
+.method-acc  { font-size: 22px; font-weight: 700; }
+
+/* ── 고정번호 섹션 ── */
+.fixed-section { background: linear-gradient(135deg, #fff9f0 0%, #fff 100%); border: 1px solid #ffe4b5; }
+
+.fixed-strategy-box {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.fixed-strategy-item {
+  padding: 6px 14px;
+  background: #fff8ee;
+  border: 1px solid #ffd080;
+  border-radius: 20px;
+  font-size: 12px;
+  color: #7a5500;
+  font-weight: 500;
+}
+
+.btn-fixed {
+  padding: 12px 32px;
+  background: linear-gradient(135deg, #f39c12, #e67e22);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  box-shadow: 0 3px 10px rgba(243,156,18,0.4);
+}
+
+.btn-fixed:hover:not(:disabled) { opacity: 0.9; }
+.btn-fixed:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.fixed-result {
+  margin-top: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.fixed-balls-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: #fffaf0;
+  border-radius: 14px;
+  border: 2px dashed #f39c12;
+}
+
+.fixed-score {
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: #e67e22;
+}
+
+.fixed-rationale {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rationale-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  color: #444;
+  padding: 8px 12px;
+  background: #fafafa;
+  border-radius: 6px;
+}
+
+.rationale-icon { flex-shrink: 0; }
+
+/* ── 조건 상세 ── */
+.pred-cond-item.matched { border-left: 3px solid #27ae60; }
+.pred-cond-item.unmatched { border-left: 3px solid #e0e0e0; opacity: 0.75; }
+
+.match-tag {
+  margin-left: 6px;
+  font-size: 11px;
+  color: #27ae60;
+  font-weight: 600;
+}
+
+.unmatch-tag {
+  margin-left: 6px;
+  font-size: 11px;
+  color: #aaa;
+}
+
+/* ── 추천 번호 ── */
+.predicted-conds {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.pred-cond-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 14px;
+  background: #f9f9ff;
+  border-radius: 8px;
+  border-left: 3px solid #4a90d9;
+}
+
+.pred-cond-label { font-size: 11px; color: #888; font-weight: 600; }
+.pred-cond-value { font-size: 14px; color: #1a1a2e; font-weight: 600; }
+
+.rec-games-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rec-game-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: #fafafa;
+  border-radius: 8px;
+  border: 1px solid #eee;
+}
+
+.rec-game-no {
+  font-size: 13px;
+  color: #aaa;
+  font-weight: 700;
+  min-width: 24px;
+}
+
+.rec-game-balls {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+}
+
+.rec-game-score {
+  font-size: 12px;
+  color: #888;
+  white-space: nowrap;
+}
+
 /* ── 공통 ── */
 .section {
   background: #fff;

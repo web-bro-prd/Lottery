@@ -19,7 +19,11 @@ from database import init_db, get_all_draws, get_draws_by_range, upsert_draw, ge
 from collector import fetch_draw, fetch_latest_round, collect_range, parse_csv_row, parse_xlsx
 from analysis.stats import get_full_stats, frequency_analysis, trend_analysis
 from analysis.simulation import simulate_random, simulate_strategy, monte_carlo
-from analysis.backtest import run_backtest, run_cumulative_backtest, STRATEGIES, STRATEGY_LABELS
+from analysis.backtest import (
+    run_backtest, run_cumulative_backtest,
+    generate_recommendations, generate_fixed_number,
+    METHODS, CONDITION_LABELS,
+)
 from recommender.engine import recommend_all, recommend_by_frequency, recommend_by_trend, recommend_balanced, recommend_random
 
 logging.basicConfig(
@@ -80,16 +84,16 @@ class RecommendRequest(BaseModel):
 
 
 class BacktestRequest(BaseModel):
-    window: int = 50           # 학습 윈도우 (회차 수)
-    games_per_pick: int = 5    # 회차당 예측 게임 수
-    strategies: Optional[list[str]] = None   # None = 전체
-    sample_every: int = 10     # 누적 차트 샘플링 간격
+    window: int = 600                          # 학습 윈도우 (기존 분석: 600)
+    methods: Optional[list[str]] = None        # None = 5개 전체
+    sample_every: int = 10                     # 누적 차트 샘플링 간격
 
 
-class BacktestSimulateRequest(BaseModel):
-    strategy: str              # backtest에서 선택한 기법명
-    window: int = 50           # 학습 윈도우
-    games_per_pick: int = 5    # 회차당 게임 수
+class BacktestRecommendRequest(BaseModel):
+    method: str = "WEIGHTED_RECENT"            # 예측 방법
+    window: int = 600                          # 학습 윈도우
+    n_games: int = 20                          # 추천 번호 수
+    condition_weights: Optional[dict] = None   # 조건별 가중치 (None = 균등)
 
 
 # ───────────────────────────────────── 기본 ──
@@ -347,104 +351,97 @@ def recommend(req: RecommendRequest):
 
 
 # ───────────────────────────────────── 백테스팅 ──
-@app.get("/api/backtest/strategies")
-def backtest_strategies():
-    """사용 가능한 백테스팅 기법 목록"""
+@app.get("/api/backtest/methods")
+def backtest_methods():
+    """사용 가능한 예측 방법 + 조건 목록"""
     return {
-        "strategies": [
-            {"name": name, "label": label}
-            for name, label in STRATEGY_LABELS.items()
-        ]
+        "methods": METHODS,
+        "conditions": [
+            {"key": k, "label": v} for k, v in CONDITION_LABELS.items()
+        ],
     }
 
 
 @app.post("/api/backtest/run")
 def backtest_run(req: BacktestRequest):
     """
-    슬라이딩 윈도우 백테스팅 실행
-    - 기법별 회차별 성과 + 랭킹 반환
-    - 주의: 전체 실행 시 수초 소요 (1200회차 × 7기법)
+    슬라이딩 윈도우 백테스팅
+    - 12개 조건 × 5가지 예측방법 정확도 측정
+    - window 회차 학습 → 이후 회차 예측 vs 실제 비교
+    - 주의: window=600이면 수십 초 소요
     """
     draws = get_all_draws()
-    if len(draws) < req.window + 10:
-        raise HTTPException(status_code=400, detail="데이터가 부족합니다 (최소 window+10 회차 필요)")
-    if req.strategies:
-        invalid = [s for s in req.strategies if s not in STRATEGIES]
+    if len(draws) < req.window + 5:
+        raise HTTPException(status_code=400, detail=f"데이터 부족 (현재 {len(draws)}회, 최소 {req.window + 5}회 필요)")
+    if req.methods:
+        invalid = [m for m in req.methods if m not in METHODS]
         if invalid:
-            raise HTTPException(status_code=400, detail=f"알 수 없는 기법: {invalid}")
-    return run_backtest(
-        draws,
-        window=req.window,
-        games_per_pick=req.games_per_pick,
-        strategy_names=req.strategies,
-    )
+            raise HTTPException(status_code=400, detail=f"알 수 없는 방법: {invalid}")
+    result = run_backtest(draws, window=req.window, methods=req.methods)
+    return {
+        "total_tested":           result["total_tested"],
+        "window":                 result["window"],
+        "best_method":            result["best_method"],
+        "ranking":                result["ranking"],
+        "condition_accuracy_avg": result["condition_accuracy_avg"],
+        "condition_labels":       result["condition_labels"],
+        "methods": {
+            m: {
+                "avg_accuracy":       v["avg_accuracy"],
+                "condition_accuracy": v["condition_accuracy"],
+            }
+            for m, v in result["methods"].items()
+        },
+    }
 
 
 @app.post("/api/backtest/cumulative")
 def backtest_cumulative(req: BacktestRequest):
-    """
-    누적 성과 추이 계산 (차트용)
-    - 기법별 누적 스코어를 sample_every 간격으로 반환
-    """
+    """누적 정확도 추이 (차트용)"""
     draws = get_all_draws()
-    if len(draws) < req.window + 10:
-        raise HTTPException(status_code=400, detail="데이터가 부족합니다")
-    if req.strategies:
-        invalid = [s for s in req.strategies if s not in STRATEGIES]
-        if invalid:
-            raise HTTPException(status_code=400, detail=f"알 수 없는 기법: {invalid}")
+    if len(draws) < req.window + 5:
+        raise HTTPException(status_code=400, detail="데이터 부족")
     return run_cumulative_backtest(
         draws,
         window=req.window,
-        games_per_pick=req.games_per_pick,
-        strategy_names=req.strategies,
+        methods=req.methods,
         sample_every=req.sample_every,
     )
 
 
-@app.post("/api/backtest/simulate")
-def backtest_simulate(req: BacktestSimulateRequest):
+@app.post("/api/backtest/recommend")
+def backtest_recommend(req: BacktestRecommendRequest):
     """
-    백테스팅에서 선택한 기법으로 전체 회차 시뮬레이션
-    - 매 회차: 직전 window 회차로 번호 예측 → 실제 당첨번호와 대조
-    - 비용/수익/ROI + 등수별 통계 반환
+    백테스팅 기반 번호 추천
+    - window 회차 학습 → 다음 회차 조건 예측
+    - 예측 조건을 만족하는 n_games개 번호 조합 생성
     """
-    if req.strategy not in STRATEGIES:
-        raise HTTPException(status_code=400, detail=f"알 수 없는 기법: {req.strategy}")
-
+    if req.method not in METHODS:
+        raise HTTPException(status_code=400, detail=f"알 수 없는 방법: {req.method} (사용 가능: {METHODS})")
     draws = get_all_draws()
-    if len(draws) < req.window + 10:
-        raise HTTPException(status_code=400, detail="데이터가 부족합니다")
-
-    result = run_backtest(
+    if len(draws) < req.window:
+        raise HTTPException(status_code=400, detail=f"데이터 부족 (현재 {len(draws)}회, 최소 {req.window}회 필요)")
+    return generate_recommendations(
         draws,
+        method=req.method,
         window=req.window,
-        games_per_pick=req.games_per_pick,
-        strategy_names=[req.strategy],
+        n_games=req.n_games,
+        condition_weights=req.condition_weights,
     )
 
-    strat_data = result["strategies"][req.strategy]
-    total_spent = strat_data["total_spent"]
-    total_prize = strat_data["total_prize"]
-    roi = strat_data["roi"]
-    rank_counts = strat_data["rank_counts"]
-    hit_rounds = strat_data["hit_rounds"]
 
-    return {
-        "strategy": req.strategy,
-        "label": STRATEGY_LABELS[req.strategy],
-        "window": req.window,
-        "games_per_pick": req.games_per_pick,
-        "total_rounds": result["total_rounds"],
-        "total_spent": total_spent,
-        "total_prize": total_prize,
-        "net": total_prize - total_spent,
-        "roi": roi,
-        "rank_counts": rank_counts,
-        "hit_count": strat_data["hit_count"],
-        "hit_rounds": hit_rounds[-50:],   # 최근 50개 히트만 반환 (응답 크기 제한)
-        "score": strat_data["score"],
-    }
+@app.get("/api/backtest/fixed")
+def backtest_fixed():
+    """
+    매주 고정 구매할 번호 1조 발급
+    - 역대 전체 회차에서 조건별 최빈값(=가장 자주 등장한 구조) 산출
+    - 해당 구조를 가장 잘 만족하는 번호 1조 생성
+    - 합계 중앙값 범위, AC값, 끝자리 분포 등 추가 필터 적용
+    """
+    draws = get_all_draws()
+    if len(draws) < 50:
+        raise HTTPException(status_code=400, detail="데이터 부족 (최소 50회 필요)")
+    return generate_fixed_number(draws)
 
 
 # ───────────────────────────────────── 서버 상태 ──

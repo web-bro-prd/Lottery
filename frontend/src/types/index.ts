@@ -159,36 +159,29 @@ export interface ServerStatus {
 }
 
 // ───────── 백테스팅 ─────────
-export interface StrategyInfo {
-  name: string;
+export interface ConditionInfo {
+  key: string;
   label: string;
 }
 
-export interface HitRound {
-  round: number;
-  draw_date: string;
-  rank: number;
-  actual: number[];
-  bonus: number;
+export interface BacktestMethodsResponse {
+  methods: string[];
+  conditions: ConditionInfo[];
 }
 
-export interface StrategyResult {
-  label: string;
-  rank_counts: Record<string, number>;
-  hit_rounds: HitRound[];
-  total_spent: number;
-  total_prize: number;
-  roi: number;
-  score: number;
-  hit_count: number;
+export interface MethodResult {
+  avg_accuracy: number;
+  condition_accuracy: Record<string, number>;
 }
 
 export interface BacktestResult {
+  total_tested: number;
   window: number;
-  games_per_pick: number;
-  total_rounds: number;
-  strategies: Record<string, StrategyResult>;
-  ranking: string[];
+  best_method: string;
+  ranking: [string, number][];
+  condition_accuracy_avg: Record<string, number>;
+  condition_labels: Record<string, string>;
+  methods: Record<string, MethodResult>;
 }
 
 export interface BacktestCumulativeResult {
@@ -197,18 +190,22 @@ export interface BacktestCumulativeResult {
   labels: Record<string, string>;
 }
 
-export interface BacktestSimulateResult {
-  strategy: string;
-  label: string;
+export interface BacktestRecommendResult {
+  predicted_conditions: Record<string, string>;
+  condition_labels: Record<string, string>;
+  games: number[][];
+  scores: number[];
+  method: string;
   window: number;
-  games_per_pick: number;
-  total_rounds: number;
-  total_spent: number;
-  total_prize: number;
-  net: number;
-  roi: number;
-  rank_counts: Record<string, number>;
-  hit_count: number;
-  hit_rounds: HitRound[];
+  n_games: number;
+}
+
+export interface FixedNumberResult {
+  numbers: number[];
   score: number;
+  rationale: Record<string, string>;
+  all_conditions: Record<string, string>;
+  target_conditions: Record<string, string>;
+  condition_labels: Record<string, string>;
+  median_sum: number;
 }
