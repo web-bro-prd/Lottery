@@ -15,6 +15,9 @@ backend/data/*.json
 frontend/node_modules/
 frontend/dist/
 
+# 배포 스크립트 (비밀번호 포함)
+deploy.sh
+
 # macOS
 .DS_Store
 .idea/
