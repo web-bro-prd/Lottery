@@ -10,3 +10,4 @@ aiohttp==3.9.3
 aiosqlite==0.20.0
 python-multipart==0.0.9
 httpx==0.26.0
+openpyxl==3.1.2

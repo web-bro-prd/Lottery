@@ -4,6 +4,19 @@ import type { ServerStatus, DrawResult } from '../types';
 import LottoBall from '../components/LottoBall';
 import './DashboardPage.css';
 
+/** 원 → 억/만/원 단위 문자열 변환 */
+function formatPrize(won: number): string {
+  if (won >= 100_000_000) {
+    const eok = won / 100_000_000;
+    return `${eok % 1 === 0 ? eok.toFixed(0) : eok.toFixed(1)}억원`;
+  }
+  if (won >= 10_000) {
+    const man = Math.round(won / 10_000);
+    return `${man.toLocaleString()}만원`;
+  }
+  return `${won.toLocaleString()}원`;
+}
+
 export default function DashboardPage() {
   const [status, setStatus] = useState<ServerStatus | null>(null);
   const [latestDraws, setLatestDraws] = useState<DrawResult[]>([]);
@@ -62,8 +75,8 @@ export default function DashboardPage() {
                 </div>
                 {draw.win1_prize && (
                   <div className="draw-prize">
-                    1등: {Math.round(draw.win1_prize / 100_000_000).toLocaleString()}억원
-                    ({draw.win1_count}명)
+                    1등: {formatPrize(draw.win1_prize)}
+                    {draw.win1_count != null && ` (${draw.win1_count}명)`}
                   </div>
                 )}
               </div>

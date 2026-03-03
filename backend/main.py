@@ -16,7 +16,7 @@ from pydantic import BaseModel
 
 from config import settings
 from database import init_db, get_all_draws, get_draws_by_range, upsert_draw, get_latest_round
-from collector import fetch_draw, fetch_latest_round, collect_range, parse_csv_row
+from collector import fetch_draw, fetch_latest_round, collect_range, parse_csv_row, parse_xlsx
 from analysis.stats import get_full_stats, frequency_analysis, trend_analysis
 from analysis.simulation import simulate_random, simulate_strategy, monte_carlo
 from recommender.engine import recommend_all, recommend_by_frequency, recommend_by_trend, recommend_balanced, recommend_random
@@ -138,6 +138,38 @@ def collect_range_api(start: int, end: int, background_tasks: BackgroundTasks):
 
     background_tasks.add_task(_collect)
     return {"status": "started", "start": start, "end": end}
+
+
+@app.post("/api/collect/upload-xlsx")
+async def upload_xlsx(file: UploadFile = File(...)):
+    """
+    동행복권 공식 엑셀 파일(.xlsx) 업로드로 일괄 등록
+    컬럼: No | 회차 | 번호1~6 | 보너스 | 순위 | 당첨게임수 | 1게임당 당첨금액
+    """
+    if not file.filename or not file.filename.endswith(".xlsx"):
+        raise HTTPException(status_code=400, detail="xlsx 파일만 업로드 가능합니다")
+
+    content = await file.read()
+    try:
+        data_list = parse_xlsx(content)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"엑셀 파싱 실패: {e}")
+
+    success, fail = 0, 0
+    for d in data_list:
+        try:
+            upsert_draw(d)
+            success += 1
+        except Exception as e:
+            logger.warning(f"[upload_xlsx] upsert 실패: {e}")
+            fail += 1
+
+    return {
+        "status": "ok",
+        "filename": file.filename,
+        "success": success,
+        "fail": fail,
+    }
 
 
 @app.post("/api/collect/upload-csv")

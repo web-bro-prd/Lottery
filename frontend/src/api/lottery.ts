@@ -31,6 +31,14 @@ export const uploadCsv = (file: File): Promise<{ status: string; success: number
   }).then(r => r.data);
 };
 
+export const uploadXlsx = (file: File): Promise<{ status: string; filename: string; success: number; fail: number }> => {
+  const form = new FormData();
+  form.append('file', file);
+  return client.post('/collect/upload-xlsx', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }).then(r => r.data);
+};
+
 // ───────── 당첨 번호 ─────────
 export const fetchDraws = (start?: number, end?: number): Promise<DrawsResponse> => {
   const params: Record<string, number> = {};
