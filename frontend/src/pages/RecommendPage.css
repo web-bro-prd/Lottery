@@ -1,0 +1,102 @@
+.recommend-page { padding: 24px; }
+
+.config-section { margin-bottom: 24px; }
+
+.config-row {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.config-row label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: #555;
+  font-weight: 600;
+}
+
+.config-row input {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  width: 100px;
+}
+
+.btn-primary {
+  padding: 10px 24px;
+  background: #1a1a2e;
+  color: #ffd700;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s;
+  margin-top: 18px;
+}
+
+.btn-primary:hover { background: #2d2d44; }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.result-area {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.strategy-section {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.strategy-header {
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #f0f0f0;
+}
+
+.strategy-header h3 {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin: 0 0 4px;
+}
+
+.strategy-desc {
+  font-size: 13px;
+  color: #888;
+  margin: 0;
+}
+
+.games-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.game-card {
+  background: #f9f9ff;
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 320px;
+}
+
+.game-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #888;
+}
+
+.game-balls {
+  display: flex;
+  gap: 8px;
+}

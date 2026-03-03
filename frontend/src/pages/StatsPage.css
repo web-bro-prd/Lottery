@@ -1,0 +1,92 @@
+.stats-page { padding: 24px; }
+
+.stats-summary {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 20px;
+}
+
+.tab-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+  border-bottom: 2px solid #f0f0f0;
+  padding-bottom: 8px;
+}
+
+.tab-bar button {
+  padding: 8px 20px;
+  border: none;
+  border-radius: 6px 6px 0 0;
+  background: #f5f5f5;
+  color: #666;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tab-bar button.active {
+  background: #1a1a2e;
+  color: #ffd700;
+  font-weight: 600;
+}
+
+.tab-content { display: flex; flex-direction: column; gap: 20px; }
+
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.rank-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.rank-table th {
+  background: #f5f5f5;
+  padding: 8px 12px;
+  text-align: left;
+  color: #555;
+  font-weight: 600;
+}
+
+.rank-table td {
+  padding: 7px 12px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.rank-table tr:hover td { background: #f9f9ff; }
+
+.num-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.num-badge.color-1 { background: #ffd700; color: #333; }
+.num-badge.color-2 { background: #4a90d9; }
+.num-badge.color-3 { background: #e74c3c; }
+.num-badge.color-4 { background: #7f8c8d; }
+.num-badge.color-5 { background: #27ae60; }
+
+.sum-info {
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 12px;
+}
+
+.error-msg {
+  padding: 40px;
+  text-align: center;
+  color: #e74c3c;
+  font-size: 14px;
+}

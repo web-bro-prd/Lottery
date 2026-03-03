@@ -1,0 +1,28 @@
+.lotto-ball {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+  box-shadow: inset 0 -3px 6px rgba(0,0,0,0.2), 0 2px 4px rgba(0,0,0,0.2);
+}
+
+/* 크기 */
+.lotto-ball.sm { width: 28px; height: 28px; font-size: 11px; }
+.lotto-ball.md { width: 38px; height: 38px; font-size: 14px; }
+.lotto-ball.lg { width: 50px; height: 50px; font-size: 18px; }
+
+/* 색상 (실제 로또 기준) */
+.lotto-ball.yellow { background: linear-gradient(145deg, #ffd700, #e6b800); }
+.lotto-ball.blue   { background: linear-gradient(145deg, #4a90d9, #2470c0); }
+.lotto-ball.red    { background: linear-gradient(145deg, #e74c3c, #c0392b); }
+.lotto-ball.gray   { background: linear-gradient(145deg, #7f8c8d, #566573); }
+.lotto-ball.green  { background: linear-gradient(145deg, #27ae60, #1e8449); }
+
+/* 보너스 볼 */
+.lotto-ball.bonus {
+  outline: 3px solid #ff6b6b;
+  outline-offset: 2px;
+}
