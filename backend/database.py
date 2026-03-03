@@ -63,6 +63,23 @@ def init_db():
         )
     """)
 
+    # 주간 추천번호 저장 테이블
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS tbl_weekly_recommend (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            target_round INTEGER NOT NULL UNIQUE,  -- 추천 대상 회차 (ex. 1214)
+            games        TEXT NOT NULL,             -- JSON: [[n1..n6], ...]
+            scores       TEXT NOT NULL,             -- JSON: [0.91, ...]
+            fixed        TEXT NOT NULL,             -- JSON: [n1..n6]
+            sent_at      TEXT DEFAULT (datetime('now','localtime')),
+            -- 결과 기록
+            actual_numbers TEXT,                    -- JSON: [n1..n6] 실제 당첨번호
+            actual_bonus   INTEGER,                 -- 실제 보너스
+            result_detail  TEXT,                    -- JSON: [{rank, matched}, ...]
+            result_sent_at TEXT
+        )
+    """)
+
     conn.commit()
     conn.close()
 
@@ -168,3 +185,81 @@ def update_fixed_number_memo(fixed_id: int, memo: str) -> bool:
     conn.commit()
     conn.close()
     return updated
+
+
+# ── 주간 추천번호 CRUD ────────────────────────────
+
+def save_weekly_recommend(target_round: int, games: list, scores: list, fixed: list) -> int:
+    """주간 추천번호 저장 → id 반환. 이미 존재하면 덮어씀"""
+    conn = get_db()
+    cur = conn.execute("""
+        INSERT OR REPLACE INTO tbl_weekly_recommend (target_round, games, scores, fixed, sent_at)
+        VALUES (?, ?, ?, ?, datetime('now','localtime'))
+    """, (
+        target_round,
+        json.dumps(games),
+        json.dumps(scores),
+        json.dumps(fixed),
+    ))
+    new_id = cur.lastrowid
+    conn.commit()
+    conn.close()
+    return new_id
+
+
+def get_weekly_recommend(target_round: int):
+    """특정 회차 추천번호 조회"""
+    conn = get_db()
+    row = conn.execute(
+        "SELECT * FROM tbl_weekly_recommend WHERE target_round = ?", (target_round,)
+    ).fetchone()
+    conn.close()
+    if not row:
+        return None
+    d = dict(row)
+    d["games"]  = json.loads(d["games"])
+    d["scores"] = json.loads(d["scores"])
+    d["fixed"]  = json.loads(d["fixed"])
+    if d["actual_numbers"]:
+        d["actual_numbers"] = json.loads(d["actual_numbers"])
+    if d["result_detail"]:
+        d["result_detail"] = json.loads(d["result_detail"])
+    return d
+
+
+def get_pending_result_rounds() -> list[dict]:
+    """실제 당첨번호는 있는데 결과 기록이 안 된 추천 회차 목록"""
+    conn = get_db()
+    # 추천 대상 회차가 실제 tbl_draw에 존재하고 아직 result_detail이 없는 것
+    rows = conn.execute("""
+        SELECT w.* FROM tbl_weekly_recommend w
+        JOIN tbl_draw d ON d.round = w.target_round
+        WHERE w.result_detail IS NULL
+    """).fetchall()
+    conn.close()
+    result = []
+    for row in rows:
+        d = dict(row)
+        d["games"]  = json.loads(d["games"])
+        d["scores"] = json.loads(d["scores"])
+        d["fixed"]  = json.loads(d["fixed"])
+        result.append(d)
+    return result
+
+
+def update_weekly_result(target_round: int, actual_numbers: list, actual_bonus: int, result_detail: list):
+    """추천번호 결과(당첨/낙첨) 업데이트"""
+    conn = get_db()
+    conn.execute("""
+        UPDATE tbl_weekly_recommend
+        SET actual_numbers = ?, actual_bonus = ?, result_detail = ?,
+            result_sent_at = datetime('now','localtime')
+        WHERE target_round = ?
+    """, (
+        json.dumps(actual_numbers),
+        actual_bonus,
+        json.dumps(result_detail),
+        target_round,
+    ))
+    conn.commit()
+    conn.close()
