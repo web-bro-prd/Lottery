@@ -3,10 +3,9 @@
 - WEBHOOK_RECOMMEND : 매주 추천번호 전송
 - WEBHOOK_RESULT    : 당첨/낙첨 결과 전송
 """
-import urllib.request
-import urllib.error
 import json
 import logging
+import requests
 
 logger = logging.getLogger(__name__)
 
@@ -34,19 +33,18 @@ def _balls(nums: list) -> str:
 
 
 def _post(url: str, content: str) -> bool:
-    payload = json.dumps({"content": content}).encode("utf-8")
-    req = urllib.request.Request(
-        url, data=payload,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            logger.info(f"[notify] 전송 완료 HTTP {resp.status}")
+        resp = requests.post(
+            url,
+            json={"content": content},
+            timeout=10,
+        )
+        if resp.status_code in (200, 204):
+            logger.info(f"[notify] 전송 완료 HTTP {resp.status_code}")
             return True
-    except urllib.error.HTTPError as e:
-        logger.error(f"[notify] HTTP {e.code}: {e.read().decode()}")
-        return False
+        else:
+            logger.error(f"[notify] HTTP {resp.status_code}: {resp.text}")
+            return False
     except Exception as e:
         logger.error(f"[notify] 전송 오류: {e}")
         return False
