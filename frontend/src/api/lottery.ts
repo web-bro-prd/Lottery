@@ -137,7 +137,7 @@ export const fetchFixedNumber = (): Promise<FixedNumberResult> =>
 
 // ───────── 고정번호 저장/관리 ─────────
 export const getFixedNumbers = (): Promise<SavedFixedNumber[]> =>
-  client.get('/fixed').then(r => r.data);
+  client.get('/fixed').then(r => r.data.fixed_numbers);
 
 export const saveFixedNumber = (params: {
   numbers: number[];
