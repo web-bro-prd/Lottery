@@ -15,7 +15,7 @@ import type {
 } from '../types';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  Legend, ResponsiveContainer, BarChart, Bar, Cell,
+  Legend, ResponsiveContainer, BarChart, Bar,
 } from 'recharts';
 import LottoBall from '../components/LottoBall';
 import './BacktestPage.css';
