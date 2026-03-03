@@ -209,3 +209,12 @@ export interface FixedNumberResult {
   condition_labels: Record<string, string>;
   median_sum: number;
 }
+
+export interface SavedFixedNumber {
+  id: number;
+  numbers: number[];
+  score: number | null;
+  rationale: Record<string, string>;
+  memo: string;
+  created_at: string;
+}

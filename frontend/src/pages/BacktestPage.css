@@ -493,3 +493,164 @@
   color: #1a1a2e;
   margin-bottom: 8px;
 }
+
+/* ── 고정번호 저장 버튼 ── */
+.fixed-save-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.btn-save-fixed {
+  padding: 9px 22px;
+  background: #27ae60;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn-save-fixed:hover:not(:disabled) { background: #1e9451; }
+.btn-save-fixed:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.save-msg {
+  font-size: 13px;
+  font-weight: 600;
+}
+.save-msg.ok  { color: #27ae60; }
+.save-msg.fail { color: #e74c3c; }
+
+/* ── 저장된 고정번호 목록 ── */
+.saved-fixed-section {
+  margin-top: 32px;
+  border-top: 1px solid #f0e0c0;
+  padding-top: 24px;
+}
+
+.saved-loading, .saved-empty {
+  font-size: 13px;
+  color: #aaa;
+  margin: 8px 0;
+}
+
+.saved-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.saved-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: #fffaf0;
+  border-radius: 10px;
+  border: 1px solid #ffe4b5;
+  flex-wrap: wrap;
+}
+
+.saved-item-balls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 260px;
+}
+
+.saved-item-score {
+  font-size: 11px;
+  color: #e67e22;
+  font-weight: 600;
+  margin-left: 6px;
+  white-space: nowrap;
+}
+
+.saved-item-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 140px;
+}
+
+.saved-item-date {
+  font-size: 11px;
+  color: #aaa;
+}
+
+.saved-item-memo {
+  font-size: 13px;
+  color: #555;
+  cursor: pointer;
+  border-bottom: 1px dashed #ddd;
+  padding-bottom: 2px;
+  transition: color 0.1s;
+}
+
+.saved-item-memo:hover { color: #e67e22; }
+
+.memo-placeholder {
+  color: #bbb;
+  font-style: italic;
+}
+
+.memo-edit-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.memo-input {
+  flex: 1;
+  padding: 5px 10px;
+  border: 1px solid #f39c12;
+  border-radius: 6px;
+  font-size: 13px;
+  outline: none;
+}
+
+.btn-memo-save {
+  padding: 4px 10px;
+  background: #f39c12;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-memo-cancel {
+  padding: 4px 10px;
+  background: #eee;
+  color: #555;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.btn-delete-fixed {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: #f8d7da;
+  color: #c0392b;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.1s;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-delete-fixed:hover { background: #e74c3c; color: #fff; }

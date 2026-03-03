@@ -15,7 +15,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from config import settings
-from database import init_db, get_all_draws, get_draws_by_range, upsert_draw, get_latest_round
+from database import (
+    init_db, get_all_draws, get_draws_by_range, upsert_draw, get_latest_round,
+    save_fixed_number, get_all_fixed_numbers, delete_fixed_number, update_fixed_number_memo,
+)
 from collector import fetch_draw, fetch_latest_round, collect_range, parse_csv_row, parse_xlsx
 from analysis.stats import get_full_stats, frequency_analysis, trend_analysis
 from analysis.simulation import simulate_random, simulate_strategy, monte_carlo
@@ -94,6 +97,17 @@ class BacktestRecommendRequest(BaseModel):
     window: int = 600                          # 학습 윈도우
     n_games: int = 20                          # 추천 번호 수
     condition_weights: Optional[dict] = None   # 조건별 가중치 (None = 균등)
+
+
+class SaveFixedNumberRequest(BaseModel):
+    numbers: list[int]
+    score: Optional[float] = None
+    rationale: Optional[dict] = None
+    memo: str = ""
+
+
+class UpdateMemoRequest(BaseModel):
+    memo: str
 
 
 # ───────────────────────────────────── 기본 ──
@@ -428,6 +442,44 @@ def backtest_recommend(req: BacktestRecommendRequest):
         n_games=req.n_games,
         condition_weights=req.condition_weights,
     )
+
+
+@app.get("/api/fixed")
+def fixed_list():
+    """저장된 고정번호 전체 조회"""
+    return {"fixed_numbers": get_all_fixed_numbers()}
+
+
+@app.post("/api/fixed")
+def fixed_save(req: SaveFixedNumberRequest):
+    """고정번호 저장"""
+    if len(req.numbers) != 6:
+        raise HTTPException(status_code=400, detail="번호는 6개여야 합니다")
+    if not all(1 <= n <= 45 for n in req.numbers):
+        raise HTTPException(status_code=400, detail="번호는 1~45 사이여야 합니다")
+    new_id = save_fixed_number({
+        "numbers":   sorted(req.numbers),
+        "score":     req.score,
+        "rationale": req.rationale or {},
+        "memo":      req.memo,
+    })
+    return {"status": "ok", "id": new_id}
+
+
+@app.delete("/api/fixed/{fixed_id}")
+def fixed_delete(fixed_id: int):
+    """고정번호 삭제"""
+    if not delete_fixed_number(fixed_id):
+        raise HTTPException(status_code=404, detail="해당 고정번호를 찾을 수 없습니다")
+    return {"status": "ok"}
+
+
+@app.patch("/api/fixed/{fixed_id}/memo")
+def fixed_update_memo(fixed_id: int, req: UpdateMemoRequest):
+    """고정번호 메모 수정"""
+    if not update_fixed_number_memo(fixed_id, req.memo):
+        raise HTTPException(status_code=404, detail="해당 고정번호를 찾을 수 없습니다")
+    return {"status": "ok"}
 
 
 @app.get("/api/backtest/fixed")

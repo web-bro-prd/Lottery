@@ -1,10 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   fetchBacktestMethods,
   runBacktest,
   runBacktestCumulative,
   runBacktestRecommend,
   fetchFixedNumber,
+  getFixedNumbers,
+  saveFixedNumber,
+  deleteFixedNumber,
+  updateFixedMemo,
 } from '../api/lottery';
 import type {
   BacktestMethodsResponse,
@@ -12,6 +16,7 @@ import type {
   BacktestCumulativeResult,
   BacktestRecommendResult,
   FixedNumberResult,
+  SavedFixedNumber,
 } from '../types';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -53,18 +58,34 @@ export default function BacktestPage() {
   const [fixedResult, setFixedResult] = useState<FixedNumberResult | null>(null);
   const [fixedLoading, setFixedLoading] = useState(false);
   const [fixedError, setFixedError] = useState('');
+  const [fixedSaving, setFixedSaving] = useState(false);
+  const [fixedSaveMsg, setFixedSaveMsg] = useState('');
+
+  // 저장된 고정번호 목록
+  const [savedList, setSavedList] = useState<SavedFixedNumber[]>([]);
+  const [savedLoading, setSavedLoading] = useState(false);
+  const [editingMemoId, setEditingMemoId] = useState<number | null>(null);
+  const [editingMemoText, setEditingMemoText] = useState('');
 
   const [btLoading, setBtLoading] = useState(false);
   const [recLoading, setRecLoading] = useState(false);
   const [btError, setBtError] = useState('');
   const [recError, setRecError] = useState('');
 
+  const loadSavedList = useCallback(() => {
+    setSavedLoading(true);
+    getFixedNumbers()
+      .then(setSavedList)
+      .finally(() => setSavedLoading(false));
+  }, []);
+
   useEffect(() => {
     fetchBacktestMethods().then(r => {
       setMeta(r);
       setSelectedMethods(r.methods);
     });
-  }, []);
+    loadSavedList();
+  }, [loadSavedList]);
 
   const toggleMethod = (m: string) =>
     setSelectedMethods(prev =>
@@ -111,6 +132,7 @@ export default function BacktestPage() {
     setFixedLoading(true);
     setFixedError('');
     setFixedResult(null);
+    setFixedSaveMsg('');
     try {
       const r = await fetchFixedNumber();
       setFixedResult(r);
@@ -119,6 +141,37 @@ export default function BacktestPage() {
     } finally {
       setFixedLoading(false);
     }
+  };
+
+  const handleSaveFixed = async () => {
+    if (!fixedResult) return;
+    setFixedSaving(true);
+    setFixedSaveMsg('');
+    try {
+      await saveFixedNumber({
+        numbers: fixedResult.numbers,
+        score: fixedResult.score,
+        rationale: fixedResult.rationale,
+      });
+      setFixedSaveMsg('저장 완료!');
+      loadSavedList();
+    } catch {
+      setFixedSaveMsg('저장 실패');
+    } finally {
+      setFixedSaving(false);
+    }
+  };
+
+  const handleDeleteFixed = async (id: number) => {
+    if (!window.confirm('이 고정번호를 삭제하시겠습니까?')) return;
+    await deleteFixedNumber(id);
+    loadSavedList();
+  };
+
+  const handleMemoSave = async (id: number) => {
+    await updateFixedMemo(id, editingMemoText);
+    setEditingMemoId(null);
+    loadSavedList();
   };
 
   // 조건별 정확도 차트 데이터
@@ -342,6 +395,21 @@ export default function BacktestPage() {
               조건 부합도 {(fixedResult.score * 100).toFixed(0)}%
             </div>
 
+            <div className="fixed-save-row">
+              <button
+                className="btn-save-fixed"
+                onClick={handleSaveFixed}
+                disabled={fixedSaving}
+              >
+                {fixedSaving ? '저장 중...' : '이 번호 저장하기'}
+              </button>
+              {fixedSaveMsg && (
+                <span className={`save-msg ${fixedSaveMsg.includes('실패') ? 'fail' : 'ok'}`}>
+                  {fixedSaveMsg}
+                </span>
+              )}
+            </div>
+
             <h3 className="chart-subtitle">선택 근거</h3>
             <div className="fixed-rationale">
               {Object.entries(fixedResult.rationale).map(([key, desc]) => (
@@ -377,6 +445,67 @@ export default function BacktestPage() {
             </div>
           </div>
         )}
+
+        {/* ── 저장된 고정번호 목록 ── */}
+        <div className="saved-fixed-section">
+          <h3 className="chart-subtitle">
+            저장된 고정번호 목록
+            <span className="section-sub">{savedList.length}개 저장됨</span>
+          </h3>
+          {savedLoading && <p className="saved-loading">불러오는 중...</p>}
+          {!savedLoading && savedList.length === 0 && (
+            <p className="saved-empty">저장된 고정번호가 없습니다. 번호를 발급받고 저장해보세요.</p>
+          )}
+          <div className="saved-list">
+            {savedList.map(item => (
+              <div key={item.id} className="saved-item">
+                <div className="saved-item-balls">
+                  {item.numbers.map(n => (
+                    <LottoBall key={n} number={n} size="sm" />
+                  ))}
+                  {item.score != null && (
+                    <span className="saved-item-score">
+                      부합도 {(item.score * 100).toFixed(0)}%
+                    </span>
+                  )}
+                </div>
+                <div className="saved-item-meta">
+                  <span className="saved-item-date">
+                    {new Date(item.created_at).toLocaleDateString('ko-KR')}
+                  </span>
+                  {editingMemoId === item.id ? (
+                    <div className="memo-edit-row">
+                      <input
+                        className="memo-input"
+                        value={editingMemoText}
+                        onChange={e => setEditingMemoText(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleMemoSave(item.id)}
+                        autoFocus
+                      />
+                      <button className="btn-memo-save" onClick={() => handleMemoSave(item.id)}>저장</button>
+                      <button className="btn-memo-cancel" onClick={() => setEditingMemoId(null)}>취소</button>
+                    </div>
+                  ) : (
+                    <span
+                      className="saved-item-memo"
+                      onClick={() => { setEditingMemoId(item.id); setEditingMemoText(item.memo ?? ''); }}
+                      title="클릭하여 메모 편집"
+                    >
+                      {item.memo ? item.memo : <span className="memo-placeholder">메모 추가...</span>}
+                    </span>
+                  )}
+                </div>
+                <button
+                  className="btn-delete-fixed"
+                  onClick={() => handleDeleteFixed(item.id)}
+                  title="삭제"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
       </section>
 
       {/* ── 추천 번호 결과 ── */}

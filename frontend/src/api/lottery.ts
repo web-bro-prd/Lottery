@@ -15,6 +15,7 @@ import type {
   BacktestCumulativeResult,
   BacktestRecommendResult,
   FixedNumberResult,
+  SavedFixedNumber,
 } from '../types';
 
 // ───────── 상태 ─────────
@@ -133,3 +134,21 @@ export const runBacktestRecommend = (params: {
 
 export const fetchFixedNumber = (): Promise<FixedNumberResult> =>
   client.get('/backtest/fixed').then(r => r.data);
+
+// ───────── 고정번호 저장/관리 ─────────
+export const getFixedNumbers = (): Promise<SavedFixedNumber[]> =>
+  client.get('/fixed').then(r => r.data);
+
+export const saveFixedNumber = (params: {
+  numbers: number[];
+  score?: number;
+  rationale?: Record<string, string>;
+  memo?: string;
+}): Promise<SavedFixedNumber> =>
+  client.post('/fixed', params).then(r => r.data);
+
+export const deleteFixedNumber = (id: number): Promise<{ status: string }> =>
+  client.delete(`/fixed/${id}`).then(r => r.data);
+
+export const updateFixedMemo = (id: number, memo: string): Promise<SavedFixedNumber> =>
+  client.patch(`/fixed/${id}/memo`, { memo }).then(r => r.data);
