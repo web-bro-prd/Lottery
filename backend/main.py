@@ -7,6 +7,8 @@ import io
 import logging
 import os
 import sys
+import uuid
+import threading
 from contextlib import asynccontextmanager
 from typing import Optional
 
@@ -30,6 +32,19 @@ from analysis.backtest import (
     METHODS, CONDITION_LABELS,
 )
 from recommender.engine import recommend_all, recommend_by_frequency, recommend_by_trend, recommend_balanced, recommend_random
+
+# ── 비동기 작업 큐 (메모리) ──
+_tasks: dict = {}   # task_id → {"status": "running"|"done"|"error", "result": ..., "error": ...}
+_tasks_lock = threading.Lock()
+
+def _run_task(task_id: str, fn, *args, **kwargs):
+    try:
+        result = fn(*args, **kwargs)
+        with _tasks_lock:
+            _tasks[task_id] = {"status": "done", "result": result}
+    except Exception as e:
+        with _tasks_lock:
+            _tasks[task_id] = {"status": "error", "error": str(e)}
 
 logging.basicConfig(
     level=logging.INFO,
@@ -504,12 +519,7 @@ def backtest_pattern_sim(
     sample_every: int = 1,
     condition_window: int = 300,
 ):
-    """
-    전체 회차 통합 시뮬레이션 — 패턴 기반 vs 조건 기반 vs 랜덤 3자 비교
-    - 1회부터 전체 회차를 순회하며 각 방식으로 번호 추천 후 실제 당첨번호 대조
-    - sample_every: N회마다 샘플링 (1=전체, 5=5회마다)
-    - 주의: sample_every=1이면 수 분 소요
-    """
+    """비동기 시뮬레이션 시작 — task_id 반환. GET /api/backtest/pattern-sim/{task_id} 로 폴링"""
     draws = get_all_draws()
     if len(draws) < 15:
         raise HTTPException(status_code=400, detail="데이터 부족 (최소 15회 필요)")
@@ -517,15 +527,33 @@ def backtest_pattern_sim(
         raise HTTPException(status_code=400, detail="n_games는 1~20 범위")
     if sample_every < 1 or sample_every > 100:
         raise HTTPException(status_code=400, detail="sample_every는 1~100 범위")
-    try:
-        return run_pattern_sim(
-            draws,
-            n_games=n_games,
-            condition_window=condition_window,
-            sample_every=sample_every,
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+
+    task_id = str(uuid.uuid4())
+    with _tasks_lock:
+        _tasks[task_id] = {"status": "running"}
+
+    t = threading.Thread(
+        target=_run_task,
+        args=(task_id, run_pattern_sim, draws),
+        kwargs={"n_games": n_games, "condition_window": condition_window, "sample_every": sample_every},
+        daemon=True,
+    )
+    t.start()
+    return {"task_id": task_id, "status": "running"}
+
+
+@app.get("/api/backtest/pattern-sim/{task_id}")
+def backtest_pattern_sim_result(task_id: str):
+    """비동기 시뮬레이션 결과 폴링"""
+    with _tasks_lock:
+        task = _tasks.get(task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail="task_id를 찾을 수 없습니다")
+    if task["status"] == "running":
+        return {"status": "running"}
+    if task["status"] == "error":
+        raise HTTPException(status_code=500, detail=task["error"])
+    return {"status": "done", **task["result"]}
 
 
 @app.post("/api/backtest/pattern-recommend")

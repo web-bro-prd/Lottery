@@ -173,10 +173,13 @@ export const fetchPatternAnalysis = (): Promise<PatternAnalysisResult> =>
 export const runPatternRecommend = (nGames: number = 9): Promise<PatternRecommendResult> =>
   client.post('/backtest/pattern-recommend', null, { params: { n_games: nGames } }).then(r => r.data);
 
-// ───────── 통합 시뮬레이션 (패턴 vs 조건 vs 랜덤) ─────────
-export const runPatternSim = (params: {
+// ───────── 통합 시뮬레이션 (패턴 vs 조건 vs 랜덤) — 비동기 task_id 방식 ─────────
+export const startPatternSim = (params: {
   n_games?: number;
   sample_every?: number;
   condition_window?: number;
-}): Promise<PatternSimResult> =>
+}): Promise<{ task_id: string; status: string }> =>
   client.post('/backtest/pattern-sim', null, { params }).then(r => r.data);
+
+export const pollPatternSim = (taskId: string): Promise<{ status: string } & Partial<PatternSimResult>> =>
+  client.get(`/backtest/pattern-sim/${taskId}`).then(r => r.data);

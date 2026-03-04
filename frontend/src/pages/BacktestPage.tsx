@@ -12,7 +12,8 @@ import {
   updateFixedMemo,
   runRealSim,
   runPatternRecommend,
-  runPatternSim,
+  startPatternSim,
+  pollPatternSim,
 } from '../api/lottery';
 import type {
   BacktestMethodsResponse,
@@ -226,15 +227,36 @@ export default function BacktestPage() {
     setPatternSimResult(null);
     setShowSimDetail(false);
     try {
-      const r = await runPatternSim({
+      // 1. 작업 시작 → task_id 수신
+      const { task_id } = await startPatternSim({
         n_games: simNGames,
         sample_every: simSampleEvery,
         condition_window: simCondWindow,
       });
-      setPatternSimResult(r);
+
+      // 2. 3초마다 폴링
+      await new Promise<void>((resolve, reject) => {
+        const interval = setInterval(async () => {
+          try {
+            const res = await pollPatternSim(task_id);
+            if (res.status === 'done') {
+              clearInterval(interval);
+              setPatternSimResult(res as PatternSimResult);
+              resolve();
+            } else if (res.status === 'error') {
+              clearInterval(interval);
+              reject(new Error('서버 처리 오류'));
+            }
+            // status === 'running' 이면 계속 대기
+          } catch (pollErr) {
+            clearInterval(interval);
+            reject(pollErr);
+          }
+        }, 3000);
+      });
     } catch (e: unknown) {
       const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
-      setPatternSimError(detail ?? '시뮬레이션 실패');
+      setPatternSimError(detail ?? (e instanceof Error ? e.message : '시뮬레이션 실패'));
     } finally {
       setPatternSimLoading(false);
     }
