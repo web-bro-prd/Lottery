@@ -189,17 +189,31 @@ def update_fixed_number_memo(fixed_id: int, memo: str) -> bool:
 
 # ── 주간 추천번호 CRUD ────────────────────────────
 
-def save_weekly_recommend(target_round: int, games: list, scores: list, fixed: list) -> int:
+def save_weekly_recommend(
+    target_round: int,
+    games: list,
+    scores: list,
+    fixed: list,
+    source_labels: list | None = None,
+) -> int:
     """주간 추천번호 저장 → id 반환. 이미 존재하면 덮어씀"""
     conn = get_db()
+    # source_labels 컬럼이 없으면 추가 (마이그레이션)
+    try:
+        conn.execute("ALTER TABLE tbl_weekly_recommend ADD COLUMN source_labels TEXT")
+        conn.commit()
+    except Exception:
+        pass  # 이미 존재
     cur = conn.execute("""
-        INSERT OR REPLACE INTO tbl_weekly_recommend (target_round, games, scores, fixed, sent_at)
-        VALUES (?, ?, ?, ?, datetime('now','localtime'))
+        INSERT OR REPLACE INTO tbl_weekly_recommend
+            (target_round, games, scores, fixed, source_labels, sent_at)
+        VALUES (?, ?, ?, ?, ?, datetime('now','localtime'))
     """, (
         target_round,
         json.dumps(games),
         json.dumps(scores),
         json.dumps(fixed),
+        json.dumps(source_labels) if source_labels is not None else None,
     ))
     new_id = cur.lastrowid
     conn.commit()

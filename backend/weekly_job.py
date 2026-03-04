@@ -6,12 +6,13 @@
 흐름:
   1. 최신 당첨번호 DB 갱신
   2. 지난주 추천번호 결과 확인 → 결과 채널에 전송
-  3. 다음 회차 고정번호 1개 + 추천번호 9게임 생성
+  3. 다음 회차 weekly_pick() 실행 (고정 1 + 조건 추천 4 + 패턴 5)
   4. DB 저장
   5. 추천 채널에 전송
 """
 import sys
 import os
+import json
 import logging
 
 # 백엔드 디렉토리를 경로에 추가
@@ -31,7 +32,7 @@ from database import (
 )
 from collector import fetch_latest_round, collect_range
 from database import upsert_draw
-from analysis.backtest import generate_recommendations, generate_fixed_number
+from analysis.backtest import weekly_pick
 from notify import send_weekly_numbers, send_result, send_error
 
 
@@ -89,14 +90,18 @@ def step2_send_results():
             "rank": _rank(fixed),
             "matched": len(set(fixed) & actual_set),
             "is_fixed": True,
+            "source_label": "고정",
         })
-        # 추천번호
-        for game in rec["games"]:
+        # 추천번호 (source_labels가 있으면 적용, 없으면 기존 호환)
+        labels = json.loads(rec.get("source_labels") or "[]") if isinstance(rec.get("source_labels"), str) else (rec.get("source_labels") or [])
+        for idx, game in enumerate(rec["games"]):
+            src = labels[idx + 1] if (idx + 1) < len(labels) else ""
             result_detail.append({
                 "game": game,
                 "rank": _rank(game),
                 "matched": len(set(game) & actual_set),
                 "is_fixed": False,
+                "source_label": src,
             })
 
         update_weekly_result(target, actual, bonus, result_detail)
@@ -113,7 +118,7 @@ def step2_send_results():
 
 
 def step3_recommend_and_send(latest_round: int):
-    """다음 회차 추천번호 생성 → 저장 → 전송"""
+    """다음 회차 추천번호 생성 → 저장 → 전송 (고정 1 + 조건 4 + 패턴 5)"""
     next_round = latest_round + 1
     draws = get_all_draws()
 
@@ -128,24 +133,18 @@ def step3_recommend_and_send(latest_round: int):
     ]
     latest_bonus = latest_draw["bonus"]
 
-    # 고정번호: DB에 저장된 것 중 가장 최근 것 사용, 없으면 자동 생성
-    saved_fixed = get_all_fixed_numbers()
-    if saved_fixed:
-        fixed_numbers = saved_fixed[0]["numbers"]
-        logger.info(f"[STEP3] 저장된 고정번호 사용: {fixed_numbers}")
-    else:
-        fixed_result = generate_fixed_number(draws)
-        fixed_numbers = fixed_result["numbers"]
-        logger.info(f"[STEP3] 고정번호 자동 생성: {fixed_numbers}")
+    # weekly_pick(): 고정 1 + 조건 추천 4 + 패턴 5
+    result = weekly_pick(draws)
+    fixed_numbers   = result["fixed"]["numbers"]
+    condition_games = result["condition"]["games"]   # list[list[int]], 4게임
+    pattern_games   = result["pattern"]["games"]     # list[list[int]], 5게임
+    source_labels   = result["source_labels"]        # ['고정','조건'×4,'패턴'×5]
+    all_games       = result["all_games"]            # 10게임 전체
 
-    # 추천번호 9게임 (WEIGHTED_RECENT, window=600)
-    rec = generate_recommendations(draws, method="WEIGHTED_RECENT", window=600, n_games=9)
-    games  = rec["games"]
-    scores = rec["scores"]
-    logger.info(f"[STEP3] 추천번호 {len(games)}게임 생성 완료")
+    logger.info(f"[STEP3] weekly_pick 완료 — 고정:{fixed_numbers} 조건:{len(condition_games)}게임 패턴:{len(pattern_games)}게임")
 
-    # DB 저장
-    save_weekly_recommend(next_round, games, scores, fixed_numbers)
+    # DB 저장 (games = 조건+패턴 9게임, scores = 빈 리스트로 호환 유지)
+    save_weekly_recommend(next_round, all_games[1:], [], fixed_numbers, source_labels)
     logger.info(f"[STEP3] {next_round}회 추천번호 DB 저장 완료")
 
     # 디스코드 전송
@@ -154,8 +153,8 @@ def step3_recommend_and_send(latest_round: int):
         latest_numbers=latest_numbers,
         latest_bonus=latest_bonus,
         fixed_numbers=fixed_numbers,
-        recommend_games=games,
-        recommend_scores=scores,
+        condition_games=condition_games,
+        pattern_games=pattern_games,
         next_round=next_round,
     )
     if ok:

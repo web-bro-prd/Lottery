@@ -43,15 +43,18 @@ def send_weekly_numbers(
     latest_numbers: list,
     latest_bonus: int,
     fixed_numbers: list,
-    recommend_games: list,
-    recommend_scores: list,
+    condition_games: list,   # 조건 추천 4게임
+    pattern_games: list,     # 패턴 추천 5게임
     next_round: int,
 ) -> bool:
 
-    # 추천번호 필드 (3게임씩 2열)
-    rec_text = "\n".join(
-        f"`{i:02d}`  {_nums(game)}  `{score*100:.0f}%`"
-        for i, (game, score) in enumerate(zip(recommend_games, recommend_scores), 1)
+    condition_text = "\n".join(
+        f"`{i:02d}`  {_nums(game)}"
+        for i, game in enumerate(condition_games, 1)
+    )
+    pattern_text = "\n".join(
+        f"`{i:02d}`  {_nums(game)}"
+        for i, game in enumerate(pattern_games, 1)
     )
 
     payload = {
@@ -65,13 +68,18 @@ def send_weekly_numbers(
                     "inline": False,
                 },
                 {
-                    "name": "🔒  고정 구매 번호 (매주 동일)",
+                    "name": "🔒  고정번호 (매주 동일)",
                     "value": _nums(fixed_numbers),
                     "inline": False,
                 },
                 {
-                    "name": f"🤖  WEIGHTED_RECENT 추천 {len(recommend_games)}게임",
-                    "value": rec_text,
+                    "name": f"🤖  조건 추천 {len(condition_games)}게임  (WEIGHTED_RECENT)",
+                    "value": condition_text or "—",
+                    "inline": False,
+                },
+                {
+                    "name": f"📈  패턴 추천 {len(pattern_games)}게임  (합계 신호 기반)",
+                    "value": pattern_text or "—",
                     "inline": False,
                 },
             ],
@@ -102,13 +110,15 @@ def send_result(
     fixed_rank    = fixed_result["rank"] if fixed_result else 0
     fixed_matched = fixed_result["matched"] if fixed_result else 0
 
-    # 추천번호 결과 텍스트
+    # 추천번호 결과 텍스트 (source_label 포함)
     rec_lines = []
     for r in result_detail:
         if r.get("is_fixed"):
             continue
         label = RANK_LABEL.get(r["rank"], "낙첨  ")
-        rec_lines.append(f"`{label}`  {_nums(r['game'])}  `{r['matched']}개 일치`")
+        src = r.get("source_label", "")
+        tag = f"[{src}]  " if src else ""
+        rec_lines.append(f"`{label}`  {tag}{_nums(r['game'])}  `{r['matched']}개 일치`")
     rec_text = "\n".join(rec_lines) if rec_lines else "—"
 
     # 헤더 색상
