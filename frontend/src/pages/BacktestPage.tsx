@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
+  fetchStatus,
   fetchBacktestMethods,
   runBacktest,
   runBacktestCumulative,
@@ -47,6 +48,7 @@ const METHOD_DESC: Record<string, string> = {
 
 export default function BacktestPage() {
   const [meta, setMeta] = useState<BacktestMethodsResponse | null>(null);
+  const [totalRounds, setTotalRounds] = useState<number>(0);
 
   // 설정
   const [window_, setWindow] = useState(600);
@@ -106,6 +108,9 @@ export default function BacktestPage() {
       setMeta(r);
       setSelectedMethods(r.methods);
     });
+    fetchStatus().then(r => {
+      if (r.total_rounds) setTotalRounds(r.total_rounds);
+    });
     loadSavedList();
   }, [loadSavedList]);
 
@@ -116,6 +121,12 @@ export default function BacktestPage() {
 
   const handleRunBacktest = async () => {
     if (selectedMethods.length === 0) return;
+    // 윈도우 유효성 검사
+    const maxWindow = totalRounds > 10 ? totalRounds - 10 : totalRounds;
+    if (window_ >= maxWindow) {
+      setBtError(`학습 윈도우(${window_})가 너무 큽니다. 전체 데이터(${totalRounds}회) 기준 최대 ${maxWindow}까지 가능합니다.`);
+      return;
+    }
     setBtLoading(true);
     setBtError('');
     setBtResult(null);
@@ -129,8 +140,9 @@ export default function BacktestPage() {
       setBtResult(bt);
       setCumResult(cum);
       setSimMethod(bt.best_method);
-    } catch {
-      setBtError('백테스팅 실패. 데이터를 먼저 수집하세요.');
+    } catch (e: unknown) {
+      const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setBtError(detail ? `백테스팅 실패: ${detail}` : '백테스팅 실패. 데이터를 먼저 수집하세요.');
     } finally {
       setBtLoading(false);
     }
@@ -270,9 +282,19 @@ export default function BacktestPage() {
         <div className="config-row">
           <label>
             학습 윈도우 (회차)
-            <input type="number" min={50} max={1200} value={window_}
-              onChange={e => setWindow(Number(e.target.value))} />
+            <input
+              type="number"
+              min={50}
+              max={totalRounds > 10 ? totalRounds - 10 : 1200}
+              value={window_}
+              onChange={e => setWindow(Number(e.target.value))}
+            />
           </label>
+          {totalRounds > 0 && (
+            <span className="window-hint">
+              전체 {totalRounds}회차 · 최대 {totalRounds - 10}회 설정 가능
+            </span>
+          )}
         </div>
 
         <div className="strategy-toggle-row">
