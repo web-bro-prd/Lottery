@@ -122,3 +122,38 @@
 .empty-msg a {
   color: #4a90d9;
 }
+
+/* ── 모바일 ── */
+@media (max-width: 768px) {
+  .dashboard-page { padding: 16px; }
+
+  .stat-cards {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  .stat-card { padding: 14px; }
+  .stat-value { font-size: 18px; }
+
+  .draw-row {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .draw-round { min-width: 56px; font-size: 13px; }
+  .draw-date  { min-width: unset; font-size: 11px; }
+
+  .draw-balls {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+
+  .draw-prize {
+    width: 100%;
+    text-align: left;
+    font-size: 11px;
+  }
+}

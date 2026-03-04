@@ -26,3 +26,9 @@
   outline: 3px solid #ff6b6b;
   outline-offset: 2px;
 }
+
+/* ── 모바일에서 공 크기 축소 ── */
+@media (max-width: 768px) {
+  .lotto-ball.md { width: 32px; height: 32px; font-size: 12px; }
+  .lotto-ball.lg { width: 40px; height: 40px; font-size: 15px; }
+}

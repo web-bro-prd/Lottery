@@ -25,6 +25,7 @@ from analysis.simulation import simulate_random, simulate_strategy, monte_carlo
 from analysis.backtest import (
     run_backtest, run_cumulative_backtest,
     generate_recommendations, generate_fixed_number,
+    run_real_sim,
     METHODS, CONDITION_LABELS,
 )
 from recommender.engine import recommend_all, recommend_by_frequency, recommend_by_trend, recommend_balanced, recommend_random
@@ -494,6 +495,28 @@ def backtest_fixed():
     if len(draws) < 50:
         raise HTTPException(status_code=400, detail="데이터 부족 (최소 50회 필요)")
     return generate_fixed_number(draws)
+
+
+@app.post("/api/backtest/real-sim")
+def backtest_real_sim(
+    method: str = "WEIGHTED_RECENT",
+    window: int = 600,
+    n_games: int = 9,
+    sample_every: int = 10,
+):
+    """
+    실전 당첨 시뮬레이션
+    - 학습 윈도우 이후 각 회차마다 추천번호 생성 → 실제 당첨번호와 대조
+    - 랜덤 구매와 ROI/당첨 빈도 비교
+    """
+    draws = get_all_draws()
+    if len(draws) <= window:
+        raise HTTPException(status_code=400, detail=f"데이터 부족 (최소 {window+1}회 필요)")
+    try:
+        return run_real_sim(draws, method=method, window=window,
+                            n_games=n_games, sample_every=sample_every)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ───────────────────────────────────── 서버 상태 ──

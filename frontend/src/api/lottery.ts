@@ -16,6 +16,7 @@ import type {
   BacktestRecommendResult,
   FixedNumberResult,
   SavedFixedNumber,
+  RealSimResult,
 } from '../types';
 
 // ───────── 상태 ─────────
@@ -134,6 +135,14 @@ export const runBacktestRecommend = (params: {
 
 export const fetchFixedNumber = (): Promise<FixedNumberResult> =>
   client.get('/backtest/fixed').then(r => r.data);
+
+export const runRealSim = (params: {
+  method?: string;
+  window?: number;
+  n_games?: number;
+  sample_every?: number;
+}): Promise<RealSimResult> =>
+  client.post('/backtest/real-sim', null, { params }).then(r => r.data);
 
 // ───────── 고정번호 저장/관리 ─────────
 export const getFixedNumbers = (): Promise<SavedFixedNumber[]> =>

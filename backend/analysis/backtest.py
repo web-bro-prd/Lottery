@@ -639,3 +639,127 @@ def generate_fixed_number(draws: list[dict]) -> dict:
         "condition_labels": CONDITION_LABELS,
         "median_sum":       median_sum,
     }
+
+
+# ══════════════════════════════════════════════
+#  실전 당첨 시뮬레이션
+#  각 회차마다 추천번호를 생성해 실제 당첨번호와 대조
+# ══════════════════════════════════════════════
+
+PRIZE_TABLE = {1: 2_000_000_000, 2: 55_000_000, 3: 1_500_000, 4: 50_000, 5: 5_000}
+TICKET_PRICE = 1_000
+
+
+def _check_rank(game: list, actual: list, bonus: int) -> int:
+    matched = len(set(game) & set(actual))
+    if matched == 6: return 1
+    if matched == 5 and bonus in game: return 2
+    if matched == 5: return 3
+    if matched == 4: return 4
+    if matched == 3: return 5
+    return 0
+
+
+def run_real_sim(
+    draws: list,
+    method: str = "WEIGHTED_RECENT",
+    window: int = 600,
+    n_games: int = 9,
+    sample_every: int = 10,
+) -> dict:
+    """
+    학습 윈도우 이후 각 회차마다 추천번호를 생성해 실제 당첨번호와 대조.
+    랜덤 구매와 비교 결과도 함께 반환.
+    """
+    draws_sorted = sorted(draws, key=lambda d: d["round"])
+    total = len(draws_sorted)
+
+    if total <= window:
+        raise ValueError(f"데이터 부족: {total}회차, 윈도우 {window}회 필요")
+
+    rank_counts   = {0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
+    random_counts = {0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
+    total_spent   = 0
+    total_prize   = 0
+    random_prize  = 0
+    tested_rounds = []
+    detail        = []  # 등수별 대표 사례
+
+    test_indices = range(window, total, sample_every)
+
+    for i in test_indices:
+        train = draws_sorted[:i]
+        target_draw = draws_sorted[i]
+        actual = [target_draw["num1"], target_draw["num2"], target_draw["num3"],
+                  target_draw["num4"], target_draw["num5"], target_draw["num6"]]
+        bonus = target_draw["bonus"]
+        round_no = target_draw["round"]
+
+        # 추천번호 생성
+        try:
+            rec = generate_recommendations(train, method=method, window=window, n_games=n_games)
+            games = rec["games"]
+        except Exception:
+            continue
+
+        spent = len(games) * TICKET_PRICE
+        total_spent += spent
+        tested_rounds.append(round_no)
+
+        for game in games:
+            rank = _check_rank(game, actual, bonus)
+            rank_counts[rank] += 1
+            prize = PRIZE_TABLE.get(rank, 0)
+            total_prize += prize
+
+            # 대표 사례 수집 (1~3등만)
+            if rank in (1, 2, 3) and not any(d["rank"] == rank for d in detail):
+                detail.append({
+                    "round": round_no,
+                    "rank": rank,
+                    "game": game,
+                    "actual": actual,
+                    "bonus": bonus,
+                    "matched": len(set(game) & set(actual)),
+                })
+
+        # 랜덤 비교
+        for _ in games:
+            rnd_game = sorted(random.sample(range(1, 46), 6))
+            rrank = _check_rank(rnd_game, actual, bonus)
+            random_counts[rrank] += 1
+            random_prize += PRIZE_TABLE.get(rrank, 0)
+
+    total_games   = sum(rank_counts.values())
+    random_games  = sum(random_counts.values())
+    net           = total_prize - total_spent
+    random_net    = random_prize - total_spent
+    roi           = (total_prize / total_spent * 100) if total_spent else 0
+    random_roi    = (random_prize / total_spent * 100) if total_spent else 0
+
+    # 등수별 비율
+    rank_rate   = {k: round(v / total_games * 100, 3) if total_games else 0
+                   for k, v in rank_counts.items()}
+    random_rate = {k: round(v / random_games * 100, 3) if random_games else 0
+                   for k, v in random_counts.items()}
+
+    return {
+        "method":        method,
+        "window":        window,
+        "n_games":       n_games,
+        "sample_every":  sample_every,
+        "tested_rounds": len(tested_rounds),
+        "total_games":   total_games,
+        "total_spent":   total_spent,
+        "total_prize":   total_prize,
+        "net":           net,
+        "roi":           round(roi, 2),
+        "rank_counts":   rank_counts,
+        "rank_rate":     rank_rate,
+        "random_counts": random_counts,
+        "random_rate":   random_rate,
+        "random_prize":  random_prize,
+        "random_net":    random_net,
+        "random_roi":    round(random_roi, 2),
+        "detail":        detail,
+    }

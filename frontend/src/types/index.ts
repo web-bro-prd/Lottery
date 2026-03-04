@@ -218,3 +218,34 @@ export interface SavedFixedNumber {
   memo: string;
   created_at: string;
 }
+
+// ───────── 실전 당첨 시뮬레이션 ─────────
+export interface RealSimDetail {
+  round: number;
+  rank: number;
+  game: number[];
+  actual: number[];
+  bonus: number;
+  matched: number;
+}
+
+export interface RealSimResult {
+  method: string;
+  window: number;
+  n_games: number;
+  sample_every: number;
+  tested_rounds: number;
+  total_games: number;
+  total_spent: number;
+  total_prize: number;
+  net: number;
+  roi: number;
+  rank_counts: Record<string, number>;
+  rank_rate: Record<string, number>;
+  random_counts: Record<string, number>;
+  random_rate: Record<string, number>;
+  random_prize: number;
+  random_net: number;
+  random_roi: number;
+  detail: RealSimDetail[];
+}
