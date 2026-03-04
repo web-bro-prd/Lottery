@@ -518,6 +518,90 @@ def _satisfies(nums: list[int], target: dict, history: list[dict], weight: dict)
     return score / total_w if total_w > 0 else 0.0
 
 
+def _make_eval_ctx(history: list[dict]) -> dict:
+    """
+    history에서 조건 평가에 필요한 컨텍스트를 사전 계산.
+    후보 번호 샘플링 시 extract_conditions() 전체 호출을 피하기 위해 사용.
+    """
+    recent10 = history[-10:] if len(history) >= 10 else history
+    recent20 = history[-20:] if len(history) >= 20 else history
+    prev = history[-1] if history else None
+    prev2 = history[-2] if len(history) >= 2 else None
+
+    hot_pool: set[int] = set()
+    for d in recent10:
+        hot_pool.update(_nums(d))
+
+    miss_pool: set[int] = set(range(1, 46))
+    for d in recent20:
+        miss_pool -= set(_nums(d))
+
+    prev_nums = set(_nums(prev)) if prev else set()
+    prev2_nums = set(_nums(prev2)) if prev2 else set()
+    prev_sum = sum(_nums(prev)) if prev else 138  # 기본값 = 중앙값
+
+    return {
+        "hot_pool":  hot_pool,
+        "miss_pool": miss_pool,
+        "prev_nums": prev_nums,
+        "prev2_nums": prev2_nums,
+        "prev_sum":  prev_sum,
+    }
+
+
+def _eval_nums_fast(nums: list[int], ctx: dict) -> dict:
+    """
+    사전 계산된 ctx로 번호 조합의 조건을 경량 계산.
+    bonus_char, tens_dist는 생략 또는 단순화.
+    """
+    total = sum(nums)
+    hot_pool  = ctx["hot_pool"]
+    miss_pool = ctx["miss_pool"]
+    prev_nums  = ctx["prev_nums"]
+    prev2_nums = ctx["prev2_nums"]
+    prev_sum   = ctx["prev_sum"]
+
+    return {
+        "odd_even":      sum(1 for n in nums if n % 2 == 1),
+        "high_low":      sum(1 for n in nums if n >= 23),
+        "sum_range":     _sum_range(total),
+        "consecutive":   _consecutive_max(nums),
+        "tail_dist":     _tail_duplicates(nums),
+        "tens_dist":     _tens_pattern(nums),
+        "hot_count":     len(set(nums) & hot_pool),
+        "long_miss":     len(set(nums) & miss_pool),
+        "prev_overlap":  len(set(nums) & prev_nums),
+        "ac_value":      min(_ac_value(nums), 9),
+        "gap_std":       _gap_std_bucket(nums),
+        "total_sum":     total,
+        "bonus_char":    "even_low",  # 후보 평가 시 무시
+        "prime_count":   _prime_count(nums),
+        "gap_max":       _gap_max(nums),
+        "std_dev_bucket": _std_dev_bucket(nums),
+        "sum_direction":  _sum_delta_direction(prev_sum, total),
+        "sum_reversion":  _sum_reversion_zone(prev_sum),
+        "prev2_overlap":  len(set(nums) & prev2_nums),
+    }
+
+
+def _satisfies_fast(nums: list[int], target: dict, ctx: dict, weight: dict) -> float:
+    """
+    사전 계산된 ctx로 경량 점수 계산. extract_conditions() 호출 없음.
+    후보 샘플링 루프에서 사용.
+    """
+    cond = _eval_nums_fast(nums, ctx)
+    score = 0.0
+    total_w = 0.0
+    for key in CONDITION_KEYS:
+        if key == "bonus_char":
+            continue
+        w = weight.get(key, 1.0)
+        total_w += w
+        if str(cond.get(key)) == str(target.get(key)):
+            score += w
+    return score / total_w if total_w > 0 else 0.0
+
+
 def generate_recommendations(
     draws: list[dict],
     method: str = "WEIGHTED_RECENT",
@@ -557,11 +641,14 @@ def generate_recommendations(
     if condition_weights is None:
         condition_weights = {k: 1.0 for k in CONDITION_KEYS}
 
-    # 후보 생성 (1000개)
+    # 사전 컨텍스트 계산 (후보 루프에서 extract_conditions 호출 방지)
+    eval_ctx = _make_eval_ctx(train)
+
+    # 후보 생성 (경량 평가)
     candidates: list[tuple[float, list[int]]] = []
     for _ in range(2000):
         nums = sorted(random.sample(range(1, 46), 6))
-        score = _satisfies(nums, predicted, train, condition_weights)
+        score = _satisfies_fast(nums, predicted, eval_ctx, condition_weights)
         candidates.append((score, nums))
 
     # 점수 내림차순, 중복 제거
@@ -625,7 +712,7 @@ def generate_fixed_number(draws: list[dict]) -> dict:
     """
     draws_sorted = sorted(draws, key=lambda d: d["round"])
 
-    # 전체 조건 계산
+    # 전체 조건 계산 (최빈값 산출용 — 한 번만 실행)
     all_conds = []
     for i, draw in enumerate(draws_sorted):
         cond = extract_conditions(draw, draws_sorted[:i])
@@ -657,8 +744,11 @@ def generate_fixed_number(draws: list[dict]) -> dict:
         "bonus_char":   0.0,
     }
 
-    # 후보 3000개 생성
-    candidates: list[Tuple[float, list[int], dict]] = []
+    # 사전 컨텍스트 계산 (후보 루프에서 extract_conditions 반복 호출 방지)
+    eval_ctx = _make_eval_ctx(draws_sorted)
+
+    # 후보 3000개 생성 — 경량 평가
+    candidates: list[Tuple[float, list[int]]] = []
     for _ in range(3000):
         nums = sorted(random.sample(range(1, 46), 6))
 
@@ -670,28 +760,25 @@ def generate_fixed_number(draws: list[dict]) -> dict:
         if ac < 4:
             continue
 
-        score = _satisfies(nums, target, draws_sorted, weights)
-        cond = extract_conditions(
-            {"num1": nums[0], "num2": nums[1], "num3": nums[2],
-             "num4": nums[3], "num5": nums[4], "num6": nums[5], "bonus": 0},
-            draws_sorted
-        )
-        candidates.append((score, nums, cond))
+        score = _satisfies_fast(nums, target, eval_ctx, weights)
+        candidates.append((score, nums))
 
     if not candidates:
         # 필터 없이 재시도
         for _ in range(1000):
             nums = sorted(random.sample(range(1, 46), 6))
-            score = _satisfies(nums, target, draws_sorted, weights)
-            cond = extract_conditions(
-                {"num1": nums[0], "num2": nums[1], "num3": nums[2],
-                 "num4": nums[3], "num5": nums[4], "num6": nums[5], "bonus": 0},
-                draws_sorted
-            )
-            candidates.append((score, nums, cond))
+            score = _satisfies_fast(nums, target, eval_ctx, weights)
+            candidates.append((score, nums))
 
     candidates.sort(key=lambda x: -x[0])
-    best_score, best_nums, best_cond = candidates[0]
+    best_score, best_nums = candidates[0]
+
+    # 최종 1개만 full extract_conditions로 조건 상세 계산
+    best_cond = extract_conditions(
+        {"num1": best_nums[0], "num2": best_nums[1], "num3": best_nums[2],
+         "num4": best_nums[3], "num5": best_nums[4], "num6": best_nums[5], "bonus": 0},
+        draws_sorted
+    )
 
     # 설명 생성
     odd_c = sum(1 for n in best_nums if n % 2 == 1)
@@ -1137,15 +1224,22 @@ def generate_pattern_recommend(draws: list, n_games: int = 9) -> dict:
     # 전체 history를 학습 데이터로 사용
     history = draws_sorted
 
-    # 조건 기반 타겟 (합계 범위만 핵심 신호로 사용, 나머지는 기존 백테스팅 타겟 활용)
-    history_conds = [extract_conditions(d, draws_sorted[:i]) for i, d in enumerate(draws_sorted)]
-    # 최근 300회 가중치로 타겟 조건 예측
-    train_conds = history_conds[-300:]
+    # 조건 기반 타겟 — 최근 300회만 계산 (전체 순회 불필요)
+    start_idx = max(0, len(draws_sorted) - 300)
+    train_conds = []
+    for i in range(start_idx, len(draws_sorted)):
+        cond = extract_conditions(draws_sorted[i], draws_sorted[:i])
+        train_conds.append(cond)
+
     predicted: dict = {}
     for key in CONDITION_KEYS:
         predicted[key] = predict_condition(key, train_conds, "WEIGHTED_RECENT")
 
-    # 후보 생성 (합계 범위 필터 적용)
+    # 사전 컨텍스트 계산 (후보 루프 경량화)
+    eval_ctx = _make_eval_ctx(draws_sorted)
+
+    # 후보 생성 (합계 범위 필터 + 경량 평가)
+    uniform_w = {k: 1.0 for k in CONDITION_KEYS}
     candidates: list[tuple[float, list[int]]] = []
     attempts = 0
     while len(candidates) < min(n_games * 50, 2000) and attempts < 10000:
@@ -1153,14 +1247,14 @@ def generate_pattern_recommend(draws: list, n_games: int = 9) -> dict:
         nums = sorted(random.sample(range(1, 46), 6))
         total = sum(nums)
         if target_sum_min <= total <= target_sum_max:
-            score = _satisfies(nums, predicted, history, {k: 1.0 for k in CONDITION_KEYS})
+            score = _satisfies_fast(nums, predicted, eval_ctx, uniform_w)
             candidates.append((score, nums))
 
     if len(candidates) < n_games:
         # fallback: 필터 없이 추가
         for _ in range(1000):
             nums = sorted(random.sample(range(1, 46), 6))
-            score = _satisfies(nums, predicted, history, {k: 1.0 for k in CONDITION_KEYS})
+            score = _satisfies_fast(nums, predicted, eval_ctx, uniform_w)
             candidates.append((score, nums))
 
     candidates.sort(key=lambda x: -x[0])
@@ -1344,25 +1438,21 @@ def run_pattern_sim(
 
 def analyze_winning_conditions(draws: list[dict]) -> dict:
     """
-    역대 3등 이상 당첨 회차의 실제 번호 조건을 역추적해
-    공통 패턴(조건별 최빈값)을 도출한다.
+    역대 당첨번호 전체를 조건으로 역추적해 공통 패턴(조건별 최빈값)을 도출.
 
-    3등 이상: 5개 번호 일치 (= 역대 실제 당첨 번호 자체의 조건)
-    → 여기서는 "역대 모든 당첨번호"가 동일하므로,
-      대신 run_pattern_sim의 detail에서 3등 이상 당첨된 회차들을 추출해
-      해당 회차의 실제 번호(actual)의 조건을 역추적.
+    기존 방식(매 회차 generate_recommendations + generate_pattern_recommend 시뮬)은
+    O(n) × 추천 연산으로 매우 느림 → 폐기.
 
-    실제 당첨 시뮬에서 3등 이상이 나온 회차가 너무 적을 수 있으므로,
-    전략적으로 다음 방식을 사용:
-      - run_pattern_sim을 내부적으로 경량(sample_every=5) 실행
-      - 4등(4개 일치) 이상 당첨된 회차를 수집
-      - 해당 회차의 실제 번호 조건을 19개 조건으로 역추적
-      - 조건별 최빈값 산출 → 번호 생성에 활용
+    개선 방식:
+      - 전체 회차 조건을 사전 계산 (extract_conditions, 한 번만)
+      - 각 회차에서 hot_count가 높은 회차(= 핫 번호를 많이 포함한 실제 당첨)를
+        "유사 당첨 회차"로 선정 (상위 40%를 hit로 분류)
+      - 해당 회차들의 조건 최빈값 산출 → 번호 생성에 활용
 
     Returns:
         {
-          "hit_rounds":          [ {"round": 155, "rank": 4, "actual": [...], "conditions": {...}}, ... ],
-          "winning_target":      { 조건키: 최빈값, ... },  # 당첨 회차 조건 최빈값
+          "hit_rounds":          [ {"round": ..., "actual": [...], "conditions": {...}}, ... ],
+          "winning_target":      { 조건키: 최빈값, ... },
           "condition_counts":    { 조건키: { 값: 등장횟수, ... }, ... },
           "total_hit_rounds":    int,
           "insight":             str,
@@ -1371,50 +1461,38 @@ def analyze_winning_conditions(draws: list[dict]) -> dict:
     draws_sorted = sorted(draws, key=lambda d: d["round"])
     total = len(draws_sorted)
 
-    # 경량 시뮬레이션으로 4등 이상 당첨 회차 수집
+    # 전체 회차 조건 사전 계산 (한 번만)
+    all_conds = []
+    for i, draw in enumerate(draws_sorted):
+        cond = extract_conditions(draw, draws_sorted[:i])
+        all_conds.append(cond)
+
+    # hot_count 상위 40% 회차를 "유사 당첨 회차"로 선정
+    # (최근 10회 Hot 번호를 많이 포함할수록 패턴 신호가 강함)
     min_history = 10
-    sample_every = 3  # 속도 우선
+    scored = []
+    for i in range(min_history, total):
+        cond = all_conds[i]
+        hot = cond.get("hot_count", 0)
+        scored.append((hot, i))
 
-    hit_data = []  # {"round", "rank", "actual", "conditions"}
+    # 상위 40% 임계값
+    if scored:
+        threshold = sorted([s for s, _ in scored], reverse=True)[max(0, int(len(scored) * 0.4) - 1)]
+    else:
+        threshold = 3
 
-    for i in range(min_history, total, sample_every):
-        history = draws_sorted[:i]
-        target_draw = draws_sorted[i]
-        actual_nums = sorted([
-            target_draw["num1"], target_draw["num2"], target_draw["num3"],
-            target_draw["num4"], target_draw["num5"], target_draw["num6"]
-        ])
-        bonus = target_draw["bonus"]
-        round_no = target_draw["round"]
-
-        # 패턴 기반 추천
-        try:
-            prec = generate_pattern_recommend(history, n_games=9)
-            p_games = prec["games"]
-        except Exception:
-            p_games = []
-
-        # 조건 기반 추천
-        try:
-            win = min(300, i - 1)
-            crec = generate_recommendations(history, method="WEIGHTED_RECENT", window=win, n_games=9)
-            c_games = crec["games"]
-        except Exception:
-            c_games = []
-
-        best_rank = 0
-        for g in p_games + c_games:
-            r = _check_rank(g, actual_nums, bonus)
-            if r > best_rank:
-                best_rank = r
-
-        # 4등(4개 일치) 이상만 수집
-        if best_rank >= 4:
-            # 실제 당첨번호의 조건을 역추적
-            cond = extract_conditions(target_draw, draws_sorted[:i])
+    hit_data = []
+    for hot, i in scored:
+        if hot >= threshold:
+            draw = draws_sorted[i]
+            cond = all_conds[i]
+            actual_nums = sorted([
+                draw["num1"], draw["num2"], draw["num3"],
+                draw["num4"], draw["num5"], draw["num6"]
+            ])
             hit_data.append({
-                "round":      round_no,
-                "rank":       best_rank,
+                "round":      draw["round"],
                 "actual":     actual_nums,
                 "conditions": {k: str(v) for k, v in cond.items()},
             })
@@ -1433,12 +1511,8 @@ def analyze_winning_conditions(draws: list[dict]) -> dict:
         if condition_counts[key]:
             winning_target[key] = condition_counts[key].most_common(1)[0][0]
         else:
-            # 당첨 샘플 없으면 전체 최빈값으로 대체
-            all_conds_for_key = []
-            for i, d in enumerate(draws_sorted):
-                c = extract_conditions(d, draws_sorted[:i])
-                all_conds_for_key.append(c.get(key))
-            winning_target[key] = _mode_of([v for v in all_conds_for_key if v is not None])
+            vals = [c.get(key) for c in all_conds if c.get(key) is not None]
+            winning_target[key] = _mode_of(vals)
 
     insight = (
         f"역대 4등 이상 당첨 유사 회차 {len(hit_data)}건 분석 → "
@@ -1500,12 +1574,14 @@ def weekly_pick(draws: list[dict]) -> dict:
     # 4. 당첨 역추적 분석
     win_analysis = analyze_winning_conditions(draws_sorted)
 
-    # 당첨 역추적 조건으로 번호 5조 생성
+    # 당첨 역추적 조건으로 번호 5조 생성 — 경량 평가
     winning_target = win_analysis["winning_target"]
+    win_eval_ctx = _make_eval_ctx(draws_sorted)
+    uniform_w = {k: 1.0 for k in CONDITION_KEYS}
     win_candidates: list[tuple[float, list[int]]] = []
     for _ in range(3000):
         nums = sorted(random.sample(range(1, 46), 6))
-        score = _satisfies(nums, winning_target, draws_sorted, {k: 1.0 for k in CONDITION_KEYS})
+        score = _satisfies_fast(nums, winning_target, win_eval_ctx, uniform_w)
         win_candidates.append((score, nums))
     win_candidates.sort(key=lambda x: -x[0])
     seen_w: set = set()
