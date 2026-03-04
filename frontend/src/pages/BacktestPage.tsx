@@ -380,33 +380,41 @@ export default function BacktestPage() {
             </section>
           )}
 
-          {/* ── STEP 3: 번호 추천 (탭) ── */}
-          <section className="section bt-sim-section">
-            <h2 className="section-title">STEP 3 — 번호 추천</h2>
+        </>
+      )}
 
-            {/* 탭 헤더 */}
-            <div className="step3-tabs">
-              <button
-                className={`step3-tab ${step3Tab === 'condition' ? 'active' : ''}`}
-                onClick={() => setStep3Tab('condition')}
-              >
-                예측 조건 기반
-              </button>
-              <button
-                className={`step3-tab pattern-tab ${step3Tab === 'pattern' ? 'active' : ''}`}
-                onClick={() => setStep3Tab('pattern')}
-              >
-                패턴 기반 ★
-              </button>
-            </div>
+      {/* ── STEP 3: 번호 추천 (탭) — btResult 독립, 항상 표시 ── */}
+      <section className="section bt-sim-section">
+        <h2 className="section-title">STEP 3 — 번호 추천</h2>
 
-            {/* 탭 1: 예측 조건 기반 (기존) */}
-            {step3Tab === 'condition' && (
-              <div className="step3-tab-content">
-                <p className="section-desc">
-                  선택한 방법으로 다음 회차의 조건(홀짝 비율, 연속번호 등)을 예측한 뒤,
-                  해당 조건을 가장 잘 만족하는 번호 조합을 생성합니다.
-                </p>
+        {/* 탭 헤더 */}
+        <div className="step3-tabs">
+          <button
+            className={`step3-tab ${step3Tab === 'condition' ? 'active' : ''}`}
+            onClick={() => setStep3Tab('condition')}
+          >
+            예측 조건 기반
+          </button>
+          <button
+            className={`step3-tab pattern-tab ${step3Tab === 'pattern' ? 'active' : ''}`}
+            onClick={() => setStep3Tab('pattern')}
+          >
+            패턴 기반 ★
+          </button>
+        </div>
+
+        {/* 탭 1: 예측 조건 기반 (백테스팅 결과 필요) */}
+        {step3Tab === 'condition' && (
+          <div className="step3-tab-content">
+            <p className="section-desc">
+              선택한 방법으로 다음 회차의 조건(홀짝 비율, 연속번호 등)을 예측한 뒤,
+              해당 조건을 가장 잘 만족하는 번호 조합을 생성합니다.
+              먼저 <strong>STEP 1 백테스팅을 실행</strong>해야 사용 가능합니다.
+            </p>
+            {!btResult ? (
+              <div className="signal-none">STEP 1 백테스팅을 먼저 실행하세요.</div>
+            ) : (
+              <>
                 <div className="sim-strategy-selector">
                   {btResult.ranking.map(([m]) => (
                     <button
@@ -430,100 +438,101 @@ export default function BacktestPage() {
                   </button>
                 </div>
                 {recError && <div className="error-msg">{recError}</div>}
-              </div>
+              </>
             )}
+          </div>
+        )}
 
-            {/* 탭 2: 패턴 기반 (신규) */}
-            {step3Tab === 'pattern' && (
-              <div className="step3-tab-content">
-                <p className="section-desc">
-                  통계적으로 유의한 신호(합계 방향 반전 p&lt;0.0001, 극단 합계 회귀 p=0.0123)를 감지해
-                  다음 회차 합계 타겟 범위를 좁히고 번호를 생성합니다.
-                </p>
-                <div className="config-row" style={{ marginTop: 12 }}>
-                  <label>
-                    추천 게임 수
-                    <input type="number" min={1} max={50} value={patternNGames}
-                      onChange={e => setPatternNGames(Number(e.target.value))} />
-                  </label>
-                  <button
-                    className="btn-primary btn-pattern"
-                    onClick={handlePatternRecommend}
-                    disabled={patternRecLoading}
-                  >
-                    {patternRecLoading ? '신호 분석 중...' : `패턴 신호 감지 후 ${patternNGames}게임 추천`}
-                  </button>
-                </div>
-                {patternRecError && <div className="error-msg">{patternRecError}</div>}
+        {/* 탭 2: 패턴 기반 (백테스팅 불필요, 독립 실행) */}
+        {step3Tab === 'pattern' && (
+          <div className="step3-tab-content">
+            <p className="section-desc">
+              통계적으로 유의한 신호(합계 방향 반전 p&lt;0.0001, 극단 합계 회귀 p=0.0123)를 감지해
+              다음 회차 합계 타겟 범위를 좁히고 번호를 생성합니다.
+              <strong> 백테스팅 없이 바로 사용 가능합니다.</strong>
+            </p>
+            <div className="config-row" style={{ marginTop: 12 }}>
+              <label>
+                추천 게임 수
+                <input type="number" min={1} max={50} value={patternNGames}
+                  onChange={e => setPatternNGames(Number(e.target.value))} />
+              </label>
+              <button
+                className="btn-primary btn-pattern"
+                onClick={handlePatternRecommend}
+                disabled={patternRecLoading}
+              >
+                {patternRecLoading ? '신호 분석 중...' : `패턴 신호 감지 후 ${patternNGames}게임 추천`}
+              </button>
+            </div>
+            {patternRecError && <div className="error-msg">{patternRecError}</div>}
 
-                {patternRecResult && (
-                  <div className="pattern-rec-result">
-                    {/* 감지된 신호 */}
-                    <h3 className="chart-subtitle">감지된 패턴 신호</h3>
-                    {patternRecResult.detected_signals.length === 0 ? (
-                      <div className="signal-none">
-                        유의한 신호 없음 — 전체 평균 범위 적용
-                      </div>
-                    ) : (
-                      <div className="signal-list">
-                        {patternRecResult.detected_signals.map((sig, i) => (
-                          <div key={i} className={`signal-item strength-${sig.strength}`}>
-                            <div className="signal-header">
-                              <span className="signal-badge">신호 {sig.name}</span>
-                              <span className={`signal-strength ${sig.strength}`}>
-                                {sig.strength === 'high' ? '★★ 강함' : sig.strength === 'medium' ? '★ 중간' : '◎ 약함'}
-                              </span>
-                            </div>
-                            <div className="signal-desc">{sig.desc}</div>
-                            <div className="signal-stat">{sig.stat}</div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* 합계 타겟 범위 */}
-                    <div className="pattern-target-box">
-                      <div className="pattern-target-label">합계 타겟 범위</div>
-                      <div className="pattern-target-range">
-                        {patternRecResult.target_sum_min} ~ {patternRecResult.target_sum_max}
-                      </div>
-                      <div className="pattern-recent-sums">
-                        최근 3회 합계: {patternRecResult.recent_sums.join(' → ')}
-                      </div>
-                    </div>
-
-                    {/* 근거 */}
-                    <div className="pattern-rationale">
-                      {patternRecResult.rationale}
-                    </div>
-
-                    {/* 추천 번호 */}
-                    <h3 className="chart-subtitle">추천 번호 (합계 타겟 범위 내, 조건 부합도 순)</h3>
-                    <div className="rec-games-list">
-                      {patternRecResult.games.map((game, i) => (
-                        <div key={i} className="rec-game-row">
-                          <span className="rec-game-no">{i + 1}</span>
-                          <div className="rec-game-balls">
-                            {game.map(n => (
-                              <LottoBall key={n} number={n} size="md" />
-                            ))}
-                          </div>
-                          <span className="rec-game-score">
-                            적합도 {(patternRecResult.scores[i] * 100).toFixed(0)}%
-                          </span>
-                          <span className="rec-game-sum">
-                            합계 {game.reduce((a, b) => a + b, 0)}
+            {patternRecResult && (
+              <div className="pattern-rec-result">
+                {/* 감지된 신호 */}
+                <h3 className="chart-subtitle">감지된 패턴 신호</h3>
+                {patternRecResult.detected_signals.length === 0 ? (
+                  <div className="signal-none">
+                    유의한 신호 없음 — 전체 평균 범위 적용
+                  </div>
+                ) : (
+                  <div className="signal-list">
+                    {patternRecResult.detected_signals.map((sig, i) => (
+                      <div key={i} className={`signal-item strength-${sig.strength}`}>
+                        <div className="signal-header">
+                          <span className="signal-badge">신호 {sig.name}</span>
+                          <span className={`signal-strength ${sig.strength}`}>
+                            {sig.strength === 'high' ? '★★ 강함' : sig.strength === 'medium' ? '★ 중간' : '◎ 약함'}
                           </span>
                         </div>
-                      ))}
-                    </div>
+                        <div className="signal-desc">{sig.desc}</div>
+                        <div className="signal-stat">{sig.stat}</div>
+                      </div>
+                    ))}
                   </div>
                 )}
+
+                {/* 합계 타겟 범위 */}
+                <div className="pattern-target-box">
+                  <div className="pattern-target-label">합계 타겟 범위</div>
+                  <div className="pattern-target-range">
+                    {patternRecResult.target_sum_min} ~ {patternRecResult.target_sum_max}
+                  </div>
+                  <div className="pattern-recent-sums">
+                    최근 3회 합계: {patternRecResult.recent_sums.join(' → ')}
+                  </div>
+                </div>
+
+                {/* 근거 */}
+                <div className="pattern-rationale">
+                  {patternRecResult.rationale}
+                </div>
+
+                {/* 추천 번호 */}
+                <h3 className="chart-subtitle">추천 번호 (합계 타겟 범위 내, 조건 부합도 순)</h3>
+                <div className="rec-games-list">
+                  {patternRecResult.games.map((game, i) => (
+                    <div key={i} className="rec-game-row">
+                      <span className="rec-game-no">{i + 1}</span>
+                      <div className="rec-game-balls">
+                        {game.map(n => (
+                          <LottoBall key={n} number={n} size="md" />
+                        ))}
+                      </div>
+                      <span className="rec-game-score">
+                        적합도 {(patternRecResult.scores[i] * 100).toFixed(0)}%
+                      </span>
+                      <span className="rec-game-sum">
+                        합계 {game.reduce((a, b) => a + b, 0)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
-          </section>
-        </>
-      )}
+          </div>
+        )}
+      </section>
 
       {/* ── STEP 4: 고정번호 발급 ── */}
       <section className="section fixed-section">
