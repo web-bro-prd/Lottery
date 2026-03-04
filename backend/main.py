@@ -25,7 +25,7 @@ from analysis.simulation import simulate_random, simulate_strategy, monte_carlo
 from analysis.backtest import (
     run_backtest, run_cumulative_backtest,
     generate_recommendations, generate_fixed_number,
-    run_real_sim,
+    run_real_sim, run_pattern_analysis,
     METHODS, CONDITION_LABELS,
 )
 from recommender.engine import recommend_all, recommend_by_frequency, recommend_by_trend, recommend_balanced, recommend_random
@@ -495,6 +495,19 @@ def backtest_fixed():
     if len(draws) < 50:
         raise HTTPException(status_code=400, detail="데이터 부족 (최소 50회 필요)")
     return generate_fixed_number(draws)
+
+
+@app.get("/api/backtest/pattern-analysis")
+def backtest_pattern_analysis():
+    """
+    신규 조건 6개 + 기존 핵심 조건의 실증 패턴 분석
+    - 합계 방향 반전, 극단 합계 회귀, 2회 전 번호 재등장 등
+    - 이론값 대비 실제 이탈 여부를 측정해 반환
+    """
+    draws = get_all_draws()
+    if len(draws) < 100:
+        raise HTTPException(status_code=400, detail="데이터 부족 (최소 100회 필요)")
+    return run_pattern_analysis(draws)
 
 
 @app.post("/api/backtest/real-sim")

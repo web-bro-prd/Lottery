@@ -249,3 +249,60 @@ export interface RealSimResult {
   random_roi: number;
   detail: RealSimDetail[];
 }
+
+// ───────── 패턴 분석 ─────────
+export interface PatternBucketItem {
+  count: number;
+  pct: number;
+  theory_pct?: number;
+}
+
+export interface PatternAnalysisResult {
+  total_draws: number;
+  sum_direction: {
+    after_up_down_pct_up: number;
+    after_down_up_pct_down: number;
+    after_up_down_n: number;
+    after_down_up_n: number;
+    theory_pct: number;
+    insight: string;
+  };
+  sum_reversion: {
+    extreme_count: number;
+    after_extreme_pct_normal: number;
+    after_extreme_pct_extreme: number;
+    theory_normal_pct: number;
+    insight: string;
+  };
+  prev2_carry: {
+    distribution: Record<string, PatternBucketItem>;
+    insight: string;
+  };
+  prime_count: {
+    distribution: Record<string, { count: number; pct: number }>;
+    avg: number;
+    theory_avg: number;
+    diff: number;
+  };
+  gap_max: {
+    distribution: Record<string, { count: number; pct: number }>;
+    avg: number;
+    insight: string;
+  };
+  std_dev_bucket: {
+    distribution: Record<string, { count: number; pct: number }>;
+    insight: string;
+  };
+  bonus_carryover: {
+    count: number;
+    pct: number;
+    theory_pct: number;
+    insight: string;
+  };
+  consecutive_sum: {
+    same_1lag_pct: number;
+    theory_pct: number;
+    diff: number;
+    insight: string;
+  };
+}

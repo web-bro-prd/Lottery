@@ -9,6 +9,7 @@ const menus = [
   { path: '/trend',     label: '트렌드',      icon: '📈' },
   { path: '/simulate',  label: '시뮬레이션',  icon: '🔁' },
   { path: '/backtest',  label: '백테스팅',    icon: '🧪' },
+  { path: '/pattern',   label: '패턴 분석',   icon: '🔬' },
   { path: '/recommend', label: '번호 추천',   icon: '✨' },
   { path: '/collect',   label: '데이터 수집', icon: '⬇️' },
 ];

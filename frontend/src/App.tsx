@@ -6,6 +6,7 @@ import StatsPage from './pages/StatsPage';
 import TrendPage from './pages/TrendPage';
 import SimulatePage from './pages/SimulatePage';
 import BacktestPage from './pages/BacktestPage';
+import PatternAnalysisPage from './pages/PatternAnalysisPage';
 import RecommendPage from './pages/RecommendPage';
 import CollectPage from './pages/CollectPage';
 import './App.css';
@@ -24,6 +25,7 @@ export default function App() {
             <Route path="/trend" element={<TrendPage />} />
             <Route path="/simulate" element={<SimulatePage />} />
             <Route path="/backtest" element={<BacktestPage />} />
+            <Route path="/pattern" element={<PatternAnalysisPage />} />
             <Route path="/recommend" element={<RecommendPage />} />
             <Route path="/collect" element={<CollectPage />} />
           </Routes>

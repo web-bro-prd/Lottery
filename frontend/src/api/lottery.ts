@@ -17,6 +17,7 @@ import type {
   FixedNumberResult,
   SavedFixedNumber,
   RealSimResult,
+  PatternAnalysisResult,
 } from '../types';
 
 // ───────── 상태 ─────────
@@ -161,3 +162,7 @@ export const deleteFixedNumber = (id: number): Promise<{ status: string }> =>
 
 export const updateFixedMemo = (id: number, memo: string): Promise<SavedFixedNumber> =>
   client.patch(`/fixed/${id}/memo`, { memo }).then(r => r.data);
+
+// ───────── 패턴 분석 ─────────
+export const fetchPatternAnalysis = (): Promise<PatternAnalysisResult> =>
+  client.get('/backtest/pattern-analysis').then(r => r.data);
