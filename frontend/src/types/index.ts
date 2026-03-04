@@ -302,6 +302,48 @@ export interface PatternRecommendResult {
   n_games: number;
 }
 
+// ───────── 이번 주 추천 10게임 ─────────
+export interface WeeklyPickConditionItem {
+  key: string;
+  label: string;
+  top_value: string;
+  count: number;
+  pct: number;
+}
+
+export interface WeeklyPickResult {
+  fixed: {
+    numbers: number[];
+    score: number;
+    rationale: Record<string, string>;
+    median_sum: number;
+  };
+  condition: {
+    games: number[][];
+    scores: number[];
+    predicted_conditions: Record<string, string>;
+    condition_labels: Record<string, string>;
+  };
+  pattern: {
+    games: number[][];
+    scores: number[];
+    detected_signals: PatternSignal[];
+    target_sum_min: number;
+    target_sum_max: number;
+    recent_sums: number[];
+    rationale: string;
+  };
+  winning_insight: {
+    total_hit_rounds: number;
+    insight: string;
+    games: number[][];
+    scores: number[];
+    top_conditions: WeeklyPickConditionItem[];
+  };
+  all_games: number[][];
+  source_labels: string[];
+}
+
 // ───────── 패턴 분석 ─────────
 export interface PatternBucketItem {
   count: number;

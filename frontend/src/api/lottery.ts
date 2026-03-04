@@ -20,6 +20,7 @@ import type {
   PatternAnalysisResult,
   PatternRecommendResult,
   PatternSimResult,
+  WeeklyPickResult,
 } from '../types';
 
 // ───────── 상태 ─────────
@@ -172,6 +173,10 @@ export const fetchPatternAnalysis = (): Promise<PatternAnalysisResult> =>
 // ───────── 패턴 기반 번호 추천 ─────────
 export const runPatternRecommend = (nGames: number = 9): Promise<PatternRecommendResult> =>
   client.post('/backtest/pattern-recommend', null, { params: { n_games: nGames } }).then(r => r.data);
+
+// ───────── 이번 주 추천 10게임 ─────────
+export const runWeeklyPick = (): Promise<WeeklyPickResult> =>
+  client.post('/backtest/weekly-pick').then(r => r.data);
 
 // ───────── 통합 시뮬레이션 (패턴 vs 조건 vs 랜덤) — 비동기 task_id 방식 ─────────
 export const startPatternSim = (params: {

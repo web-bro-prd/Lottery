@@ -1252,6 +1252,7 @@ def run_pattern_sim(
         tested += 1
 
         # ── 1. 패턴 기반 추천 ──
+        prec: dict = {}
         try:
             prec = generate_pattern_recommend(history, n_games=n_games)
             p_games = prec["games"]
@@ -1333,4 +1334,240 @@ def run_pattern_sim(
         "condition":     summarize(c_counts, c_prize, "조건 기반(WEIGHTED_RECENT)"),
         "random":        summarize(r_counts, r_prize, "랜덤"),
         "detail":        detail,
+    }
+
+
+# ══════════════════════════════════════════════
+#  역대 3등 이상 당첨 번호의 조건 역추적
+#  → 공통 조건 최빈값 도출 → 그 조건으로 번호 생성
+# ══════════════════════════════════════════════
+
+def analyze_winning_conditions(draws: list[dict]) -> dict:
+    """
+    역대 3등 이상 당첨 회차의 실제 번호 조건을 역추적해
+    공통 패턴(조건별 최빈값)을 도출한다.
+
+    3등 이상: 5개 번호 일치 (= 역대 실제 당첨 번호 자체의 조건)
+    → 여기서는 "역대 모든 당첨번호"가 동일하므로,
+      대신 run_pattern_sim의 detail에서 3등 이상 당첨된 회차들을 추출해
+      해당 회차의 실제 번호(actual)의 조건을 역추적.
+
+    실제 당첨 시뮬에서 3등 이상이 나온 회차가 너무 적을 수 있으므로,
+    전략적으로 다음 방식을 사용:
+      - run_pattern_sim을 내부적으로 경량(sample_every=5) 실행
+      - 4등(4개 일치) 이상 당첨된 회차를 수집
+      - 해당 회차의 실제 번호 조건을 19개 조건으로 역추적
+      - 조건별 최빈값 산출 → 번호 생성에 활용
+
+    Returns:
+        {
+          "hit_rounds":          [ {"round": 155, "rank": 4, "actual": [...], "conditions": {...}}, ... ],
+          "winning_target":      { 조건키: 최빈값, ... },  # 당첨 회차 조건 최빈값
+          "condition_counts":    { 조건키: { 값: 등장횟수, ... }, ... },
+          "total_hit_rounds":    int,
+          "insight":             str,
+        }
+    """
+    draws_sorted = sorted(draws, key=lambda d: d["round"])
+    total = len(draws_sorted)
+
+    # 경량 시뮬레이션으로 4등 이상 당첨 회차 수집
+    min_history = 10
+    sample_every = 3  # 속도 우선
+
+    hit_data = []  # {"round", "rank", "actual", "conditions"}
+
+    for i in range(min_history, total, sample_every):
+        history = draws_sorted[:i]
+        target_draw = draws_sorted[i]
+        actual_nums = sorted([
+            target_draw["num1"], target_draw["num2"], target_draw["num3"],
+            target_draw["num4"], target_draw["num5"], target_draw["num6"]
+        ])
+        bonus = target_draw["bonus"]
+        round_no = target_draw["round"]
+
+        # 패턴 기반 추천
+        try:
+            prec = generate_pattern_recommend(history, n_games=9)
+            p_games = prec["games"]
+        except Exception:
+            p_games = []
+
+        # 조건 기반 추천
+        try:
+            win = min(300, i - 1)
+            crec = generate_recommendations(history, method="WEIGHTED_RECENT", window=win, n_games=9)
+            c_games = crec["games"]
+        except Exception:
+            c_games = []
+
+        best_rank = 0
+        for g in p_games + c_games:
+            r = _check_rank(g, actual_nums, bonus)
+            if r > best_rank:
+                best_rank = r
+
+        # 4등(4개 일치) 이상만 수집
+        if best_rank >= 4:
+            # 실제 당첨번호의 조건을 역추적
+            cond = extract_conditions(target_draw, draws_sorted[:i])
+            hit_data.append({
+                "round":      round_no,
+                "rank":       best_rank,
+                "actual":     actual_nums,
+                "conditions": {k: str(v) for k, v in cond.items()},
+            })
+
+    # 조건별 빈도 집계
+    condition_counts: Dict[str, Counter] = {k: Counter() for k in CONDITION_KEYS}
+    for item in hit_data:
+        for key in CONDITION_KEYS:
+            val = item["conditions"].get(key)
+            if val is not None:
+                condition_counts[key][val] += 1
+
+    # 조건별 최빈값
+    winning_target: Dict[str, object] = {}
+    for key in CONDITION_KEYS:
+        if condition_counts[key]:
+            winning_target[key] = condition_counts[key].most_common(1)[0][0]
+        else:
+            # 당첨 샘플 없으면 전체 최빈값으로 대체
+            all_conds_for_key = []
+            for i, d in enumerate(draws_sorted):
+                c = extract_conditions(d, draws_sorted[:i])
+                all_conds_for_key.append(c.get(key))
+            winning_target[key] = _mode_of([v for v in all_conds_for_key if v is not None])
+
+    insight = (
+        f"역대 4등 이상 당첨 유사 회차 {len(hit_data)}건 분석 → "
+        f"공통 조건 최빈값으로 번호 생성"
+        if hit_data else
+        "당첨 샘플 부족 — 전체 회차 조건 최빈값으로 대체"
+    )
+
+    logger.info(f"[winning_conditions] 분석 완료: {len(hit_data)}건 히트")
+
+    return {
+        "hit_rounds":       hit_data[:20],   # UI 표시용 최대 20개
+        "winning_target":   {k: str(v) for k, v in winning_target.items()},
+        "condition_counts": {k: dict(v.most_common(5)) for k, v in condition_counts.items()},
+        "total_hit_rounds": len(hit_data),
+        "insight":          insight,
+    }
+
+
+def weekly_pick(draws: list[dict]) -> dict:
+    """
+    이번 주 추천 10게임 통합 반환
+
+    구성:
+      1. 고정번호 1조    — generate_fixed_number()
+      2. 조건 기반 4조   — generate_recommendations() 상위 4게임
+      3. 패턴 기반 5조   — generate_pattern_recommend() 상위 5게임
+      4. 당첨 역추적 인사이트 — analyze_winning_conditions() (번호 생성 포함)
+
+    Returns:
+        {
+          "fixed":        { numbers, score, rationale, ... },         # 고정번호 1조
+          "condition":    { games[[4조]], scores, predicted_conditions, ... },
+          "pattern":      { games[[5조]], scores, detected_signals, target_sum_min/max, ... },
+          "winning_insight": {
+            "total_hit_rounds": int,
+            "insight": str,
+            "games": [[5조]],   # 당첨 역추적 조건으로 생성한 번호
+            "scores": [...],
+            "top_conditions": [ {"key","label","top_value","count"}, ... ]  # 상위 조건 5개
+          },
+          "all_games": [[10조]],   # fixed + condition4 + pattern5 순서, 편의용
+          "source_labels": ["고정","조건","조건","조건","조건","패턴","패턴","패턴","패턴","패턴"],
+        }
+    """
+    draws_sorted = sorted(draws, key=lambda d: d["round"])
+
+    # 1. 고정번호
+    fixed = generate_fixed_number(draws_sorted)
+
+    # 2. 조건 기반 4조 (WEIGHTED_RECENT, window=min(600, len))
+    window = min(600, len(draws_sorted) - 1)
+    cond_rec = generate_recommendations(draws_sorted, method="WEIGHTED_RECENT",
+                                        window=window, n_games=4)
+
+    # 3. 패턴 기반 5조
+    pat_rec = generate_pattern_recommend(draws_sorted, n_games=5)
+
+    # 4. 당첨 역추적 분석
+    win_analysis = analyze_winning_conditions(draws_sorted)
+
+    # 당첨 역추적 조건으로 번호 5조 생성
+    winning_target = win_analysis["winning_target"]
+    win_candidates: list[tuple[float, list[int]]] = []
+    for _ in range(3000):
+        nums = sorted(random.sample(range(1, 46), 6))
+        score = _satisfies(nums, winning_target, draws_sorted, {k: 1.0 for k in CONDITION_KEYS})
+        win_candidates.append((score, nums))
+    win_candidates.sort(key=lambda x: -x[0])
+    seen_w: set = set()
+    win_games, win_scores = [], []
+    for sc, nums in win_candidates:
+        k = "-".join(map(str, nums))
+        if k not in seen_w:
+            seen_w.add(k)
+            win_games.append(nums)
+            win_scores.append(round(sc, 4))
+        if len(win_games) >= 5:
+            break
+
+    # 상위 조건 5개 (당첨 회차에서 가장 일관된 조건)
+    top_conditions = []
+    for key in CONDITION_KEYS:
+        if key == "bonus_char":
+            continue
+        cc = win_analysis["condition_counts"].get(key, {})
+        if cc:
+            top_val, top_cnt = max(cc.items(), key=lambda x: x[1])
+            total_hits = win_analysis["total_hit_rounds"]
+            pct = round(top_cnt / total_hits * 100, 1) if total_hits else 0
+            top_conditions.append({
+                "key":       key,
+                "label":     CONDITION_LABELS.get(key, key),
+                "top_value": top_val,
+                "count":     top_cnt,
+                "pct":       pct,
+            })
+    # 일관성(pct) 내림차순 정렬, 상위 5개
+    top_conditions.sort(key=lambda x: -x["pct"])
+    top_conditions = top_conditions[:5]
+
+    # all_games: fixed 1 + condition 4 + pattern 5
+    all_games = [fixed["numbers"]] + cond_rec["games"] + pat_rec["games"]
+    source_labels = ["고정"] + ["조건"] * len(cond_rec["games"]) + ["패턴"] * len(pat_rec["games"])
+
+    return {
+        "fixed":    fixed,
+        "condition": {
+            "games":                cond_rec["games"],
+            "scores":               cond_rec["scores"],
+            "predicted_conditions": cond_rec["predicted_conditions"],
+            "condition_labels":     cond_rec["condition_labels"],
+        },
+        "pattern": {
+            "games":            pat_rec["games"],
+            "scores":           pat_rec["scores"],
+            "detected_signals": pat_rec["detected_signals"],
+            "target_sum_min":   pat_rec["target_sum_min"],
+            "target_sum_max":   pat_rec["target_sum_max"],
+            "recent_sums":      pat_rec["recent_sums"],
+            "rationale":        pat_rec["rationale"],
+        },
+        "winning_insight": {
+            "total_hit_rounds": win_analysis["total_hit_rounds"],
+            "insight":          win_analysis["insight"],
+            "games":            win_games,
+            "scores":           win_scores,
+            "top_conditions":   top_conditions,
+        },
+        "all_games":     all_games,
+        "source_labels": source_labels,
     }

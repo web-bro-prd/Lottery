@@ -28,7 +28,7 @@ from analysis.backtest import (
     run_backtest, run_cumulative_backtest,
     generate_recommendations, generate_fixed_number,
     run_real_sim, run_pattern_analysis, generate_pattern_recommend,
-    run_pattern_sim,
+    run_pattern_sim, weekly_pick,
     METHODS, CONDITION_LABELS,
 )
 from recommender.engine import recommend_all, recommend_by_frequency, recommend_by_trend, recommend_balanced, recommend_random
@@ -570,6 +570,33 @@ def backtest_pattern_recommend(n_games: int = 9):
     if n_games < 1 or n_games > 50:
         raise HTTPException(status_code=400, detail="n_games는 1~50 범위여야 합니다")
     return generate_pattern_recommend(draws, n_games=n_games)
+
+
+@app.post("/api/backtest/weekly-pick")
+def backtest_weekly_pick():
+    """
+    이번 주 추천 10게임 통합 반환
+
+    구성:
+      1. 고정번호 1조    — 역대 조건 최빈값 기반
+      2. 조건 기반 4조   — WEIGHTED_RECENT 예측 조건 기반
+      3. 패턴 기반 5조   — 합계 방향 신호 기반
+
+    추가 인사이트:
+      - 역대 4등 이상 당첨 유사 회차의 실제 번호 조건 역추적 분석
+      - 공통 조건 최빈값 표시 (번호 생성 참고용)
+
+    주의: 내부적으로 경량 시뮬레이션 실행 → 수십 초 소요 가능
+    비동기 필요시 task_id 방식으로 전환 고려
+    """
+    draws = get_all_draws()
+    if len(draws) < 15:
+        raise HTTPException(status_code=400, detail="데이터 부족 (최소 15회 필요)")
+    try:
+        return weekly_pick(draws)
+    except Exception as e:
+        logger.error(f"[weekly_pick] 오류: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/api/backtest/pattern-analysis")

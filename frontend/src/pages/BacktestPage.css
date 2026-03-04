@@ -932,3 +932,172 @@
   min-width: 50px;
   text-align: right;
 }
+
+/* ══════════════════════════════════════════
+   STEP 3.5 — 이번 주 추천 10게임
+══════════════════════════════════════════ */
+.weekly-pick-section {
+  background: linear-gradient(135deg, #fef9f0 0%, #fff5f5 100%);
+  border: 2px solid #f39c12;
+}
+
+.new-badge {
+  background: #e74c3c;
+  color: #fff;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  margin-left: 10px;
+}
+
+.btn-weekly {
+  background: linear-gradient(135deg, #f39c12, #e74c3c) !important;
+  font-size: 15px;
+  padding: 12px 28px;
+}
+
+.weekly-result {
+  margin-top: 24px;
+}
+
+/* 전체 10게임 */
+.weekly-all-games {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.weekly-game-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #fff;
+  border-radius: 10px;
+  padding: 10px 14px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+
+.weekly-game-badge {
+  font-size: 11px;
+  color: #fff;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 20px;
+  min-width: 36px;
+  text-align: center;
+}
+
+.weekly-game-no {
+  font-size: 13px;
+  color: #aaa;
+  min-width: 18px;
+  font-weight: 600;
+}
+
+/* 섹션별 근거 카드 */
+.weekly-breakdown {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.weekly-breakdown-card {
+  border-radius: 12px;
+  padding: 16px;
+  border: 1px solid #eee;
+  background: #fff;
+}
+
+.card-fixed  { border-top: 3px solid #9b59b6; }
+.card-condition { border-top: 3px solid #3498db; }
+.card-pattern   { border-top: 3px solid #e74c3c; }
+
+.weekly-breakdown-title {
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.weekly-breakdown-body {
+  font-size: 13px;
+}
+
+.weekly-signal-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.weekly-cond-chip {
+  background: #eaf4ff;
+  border: 1px solid #3498db44;
+  border-radius: 20px;
+  padding: 3px 10px;
+  font-size: 12px;
+  color: #2c3e50;
+}
+
+.weekly-cond-chip strong {
+  color: #2980b9;
+}
+
+/* 당첨 역추적 인사이트 */
+.winning-insight-box {
+  background: #fff8e1;
+  border: 1px solid #f39c12;
+  border-radius: 12px;
+  padding: 20px;
+  margin-top: 8px;
+}
+
+.winning-insight-desc {
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 16px;
+}
+
+.winning-top-conds-label {
+  font-size: 12px;
+  color: #888;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.winning-cond-chips {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.winning-cond-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.winning-cond-label {
+  color: #555;
+  min-width: 120px;
+  font-weight: 600;
+}
+
+.winning-cond-value {
+  background: #fff3cd;
+  border: 1px solid #f39c1244;
+  border-radius: 4px;
+  padding: 1px 8px;
+  font-weight: 700;
+  color: #d35400;
+  min-width: 40px;
+  text-align: center;
+}
+
+.winning-cond-pct {
+  color: #e67e22;
+  font-weight: 700;
+  font-size: 12px;
+}

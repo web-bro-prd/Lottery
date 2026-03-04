@@ -14,6 +14,7 @@ import {
   runPatternRecommend,
   startPatternSim,
   pollPatternSim,
+  runWeeklyPick,
 } from '../api/lottery';
 import type {
   BacktestMethodsResponse,
@@ -25,6 +26,7 @@ import type {
   RealSimResult,
   PatternRecommendResult,
   PatternSimResult,
+  WeeklyPickResult,
 } from '../types';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -90,6 +92,11 @@ export default function BacktestPage() {
   const [patternRecLoading, setPatternRecLoading] = useState(false);
   const [patternRecError, setPatternRecError] = useState('');
   const [patternNGames, setPatternNGames] = useState(9);
+
+  // 이번 주 추천 10게임
+  const [weeklyResult, setWeeklyResult] = useState<WeeklyPickResult | null>(null);
+  const [weeklyLoading, setWeeklyLoading] = useState(false);
+  const [weeklyError, setWeeklyError] = useState('');
 
   // STEP3 탭
   const [step3Tab, setStep3Tab] = useState<'condition' | 'pattern'>('condition');
@@ -273,6 +280,21 @@ export default function BacktestPage() {
       setPatternRecError('패턴 기반 번호 추천 실패. 데이터를 먼저 수집하세요.');
     } finally {
       setPatternRecLoading(false);
+    }
+  };
+
+  const handleWeeklyPick = async () => {
+    setWeeklyLoading(true);
+    setWeeklyError('');
+    setWeeklyResult(null);
+    try {
+      const r = await runWeeklyPick();
+      setWeeklyResult(r);
+    } catch (e: unknown) {
+      const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setWeeklyError(detail ?? '이번 주 추천 생성 실패');
+    } finally {
+      setWeeklyLoading(false);
     }
   };
 
@@ -608,6 +630,165 @@ export default function BacktestPage() {
             )}
           </div>
         )}
+      </section>
+
+      {/* ── STEP 3.5: 이번 주 추천 10게임 ── */}
+      <section className="section weekly-pick-section">
+        <h2 className="section-title">
+          STEP 3.5 — 이번 주 추천 10게임
+          <span className="section-sub new-badge">NEW</span>
+        </h2>
+        <p className="section-desc">
+          <strong>고정 1 + 조건 기반 4 + 패턴 기반 5</strong>게임을 한 번에 생성합니다.
+          내부적으로 역대 당첨 유사 회차의 조건을 역추적해 인사이트도 함께 제공합니다.
+          <br />
+          <strong>주의:</strong> 경량 시뮬레이션이 포함되어 수십 초 소요됩니다.
+        </p>
+        <button
+          className="btn-primary btn-weekly"
+          onClick={handleWeeklyPick}
+          disabled={weeklyLoading}
+        >
+          {weeklyLoading ? '분석 중... (수십 초 소요)' : '이번 주 추천 10게임 생성'}
+        </button>
+        {weeklyError && <div className="error-msg">{weeklyError}</div>}
+
+        {weeklyResult && (() => {
+          const { fixed, condition, pattern, winning_insight, all_games, source_labels } = weeklyResult;
+          const SOURCE_COLORS: Record<string, string> = {
+            '고정': '#9b59b6',
+            '조건': '#3498db',
+            '패턴': '#e74c3c',
+          };
+          return (
+            <div className="weekly-result">
+              {/* 전체 10게임 한눈에 보기 */}
+              <h3 className="chart-subtitle">전체 추천 10게임</h3>
+              <div className="weekly-all-games">
+                {all_games.map((game, i) => {
+                  const label = source_labels[i] ?? '';
+                  const color = SOURCE_COLORS[label] ?? '#aaa';
+                  const score = label === '고정'
+                    ? fixed.score
+                    : label === '조건'
+                      ? condition.scores[i - 1]
+                      : pattern.scores[i - 1 - condition.games.length];
+                  return (
+                    <div key={i} className="weekly-game-row">
+                      <span className="weekly-game-badge" style={{ background: color }}>
+                        {label}
+                      </span>
+                      <span className="weekly-game-no">{i + 1}</span>
+                      <div className="rec-game-balls">
+                        {game.map(n => <LottoBall key={n} number={n} size="md" />)}
+                      </div>
+                      <span className="rec-game-score">
+                        적합도 {(score * 100).toFixed(0)}%
+                      </span>
+                      <span className="rec-game-sum">합계 {game.reduce((a, b) => a + b, 0)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* 섹션별 근거 */}
+              <div className="weekly-breakdown">
+                {/* 고정번호 근거 */}
+                <div className="weekly-breakdown-card card-fixed">
+                  <div className="weekly-breakdown-title" style={{ color: '#9b59b6' }}>
+                    고정번호 — 역대 최빈 조건
+                  </div>
+                  <div className="weekly-breakdown-body">
+                    {Object.values(fixed.rationale).map((desc, i) => (
+                      <div key={i} className="rationale-item">
+                        <span className="rationale-icon">📌</span>
+                        <span>{desc}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 조건 기반 근거 */}
+                <div className="weekly-breakdown-card card-condition">
+                  <div className="weekly-breakdown-title" style={{ color: '#3498db' }}>
+                    조건 기반 4게임 — WEIGHTED_RECENT 예측
+                  </div>
+                  <div className="weekly-breakdown-body">
+                    <div className="weekly-signal-list">
+                      {['odd_even', 'high_low', 'sum_range', 'consecutive', 'tail_dist'].map(key => {
+                        const label = condition.condition_labels[key] ?? key;
+                        const val = condition.predicted_conditions[key];
+                        return val ? (
+                          <span key={key} className="weekly-cond-chip">
+                            {label}: <strong>{val}</strong>
+                          </span>
+                        ) : null;
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 패턴 기반 근거 */}
+                <div className="weekly-breakdown-card card-pattern">
+                  <div className="weekly-breakdown-title" style={{ color: '#e74c3c' }}>
+                    패턴 기반 5게임 — 합계 신호
+                  </div>
+                  <div className="weekly-breakdown-body">
+                    <div className="pattern-target-box" style={{ marginBottom: 8 }}>
+                      <div className="pattern-target-label">합계 타겟 범위</div>
+                      <div className="pattern-target-range">
+                        {pattern.target_sum_min} ~ {pattern.target_sum_max}
+                      </div>
+                      <div className="pattern-recent-sums">
+                        최근 3회 합계: {pattern.recent_sums.join(' → ')}
+                      </div>
+                    </div>
+                    {pattern.detected_signals.length > 0 ? (
+                      <div className="signal-list">
+                        {pattern.detected_signals.map((sig, i) => (
+                          <div key={i} className={`signal-item strength-${sig.strength}`}>
+                            <div className="signal-header">
+                              <span className="signal-badge">신호 {sig.name}</span>
+                              <span className={`signal-strength ${sig.strength}`}>
+                                {sig.strength === 'high' ? '★★ 강함' : sig.strength === 'medium' ? '★ 중간' : '◎ 약함'}
+                              </span>
+                            </div>
+                            <div className="signal-desc">{sig.desc}</div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="signal-none">유의한 신호 없음 — 평균 범위 적용</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* 당첨 역추적 인사이트 */}
+              <div className="winning-insight-box">
+                <h3 className="chart-subtitle">
+                  당첨 역추적 인사이트
+                  <span className="section-sub">{winning_insight.total_hit_rounds}건 분석</span>
+                </h3>
+                <p className="winning-insight-desc">{winning_insight.insight}</p>
+                {winning_insight.top_conditions.length > 0 && (
+                  <div className="winning-top-conds">
+                    <div className="winning-top-conds-label">당첨 유사 회차의 공통 조건 TOP 5</div>
+                    <div className="winning-cond-chips">
+                      {winning_insight.top_conditions.map((tc, i) => (
+                        <div key={i} className="winning-cond-item">
+                          <span className="winning-cond-label">{tc.label}</span>
+                          <span className="winning-cond-value">{tc.top_value}</span>
+                          <span className="winning-cond-pct">{tc.pct}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
       </section>
 
       {/* ── STEP 4: 고정번호 발급 ── */}
