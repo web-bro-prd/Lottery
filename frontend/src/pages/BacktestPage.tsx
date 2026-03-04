@@ -121,9 +121,9 @@ export default function BacktestPage() {
 
   const handleRunBacktest = async () => {
     if (selectedMethods.length === 0) return;
-    // 윈도우 유효성 검사
-    const maxWindow = totalRounds > 10 ? totalRounds - 10 : totalRounds;
-    if (window_ >= maxWindow) {
+    // 윈도우 유효성 검사 (서버 조건: window + 5 <= totalRounds)
+    const maxWindow = totalRounds > 5 ? totalRounds - 5 : totalRounds;
+    if (window_ > maxWindow) {
       setBtError(`학습 윈도우(${window_})가 너무 큽니다. 전체 데이터(${totalRounds}회) 기준 최대 ${maxWindow}까지 가능합니다.`);
       return;
     }
@@ -285,14 +285,14 @@ export default function BacktestPage() {
             <input
               type="number"
               min={50}
-              max={totalRounds > 10 ? totalRounds - 10 : 1200}
+              max={totalRounds > 5 ? totalRounds - 5 : 1200}
               value={window_}
               onChange={e => setWindow(Number(e.target.value))}
             />
           </label>
           {totalRounds > 0 && (
             <span className="window-hint">
-              전체 {totalRounds}회차 · 최대 {totalRounds - 10}회 설정 가능
+              전체 {totalRounds}회차 · 최대 {totalRounds - 5}회 설정 가능
             </span>
           )}
         </div>
