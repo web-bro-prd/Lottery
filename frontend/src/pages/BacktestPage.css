@@ -742,3 +742,133 @@
 .btn-toggle-detail:hover { background: #e0ecf8; color: #2980b9; }
 
 .real-sim-detail { display: flex; flex-direction: column; gap: 12px; }
+
+/* ══════════════════════════════════════════
+   STEP3 탭 UI
+══════════════════════════════════════════ */
+.step3-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 20px;
+  border-bottom: 2px solid #e8ecf0;
+}
+
+.step3-tab {
+  padding: 10px 20px;
+  border: none;
+  background: none;
+  font-size: 14px;
+  font-weight: 600;
+  color: #888;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+  transition: all 0.15s;
+}
+
+.step3-tab.active {
+  color: #3498db;
+  border-bottom-color: #3498db;
+}
+
+.step3-tab.pattern-tab.active {
+  color: #e74c3c;
+  border-bottom-color: #e74c3c;
+}
+
+.step3-tab.pattern-tab { color: #c0392b; }
+.step3-tab:hover:not(.active) { color: #555; background: #f5f5f5; }
+
+.step3-tab-content { padding-top: 4px; }
+
+.btn-pattern { background: linear-gradient(135deg, #e74c3c, #c0392b) !important; }
+
+/* ── 패턴 기반 추천 결과 ── */
+.pattern-rec-result { margin-top: 20px; display: flex; flex-direction: column; gap: 16px; }
+
+/* 신호 목록 */
+.signal-list { display: flex; flex-direction: column; gap: 10px; }
+
+.signal-item {
+  padding: 14px 16px;
+  border-radius: 10px;
+  border-left: 4px solid #ddd;
+  background: #fafafa;
+}
+
+.signal-item.strength-high  { border-left-color: #e74c3c; background: #fff5f5; }
+.signal-item.strength-medium { border-left-color: #f39c12; background: #fffbf0; }
+.signal-item.strength-low   { border-left-color: #95a5a6; background: #f8f9fa; }
+
+.signal-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.signal-badge {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 10px;
+  border-radius: 20px;
+  background: #333;
+  color: #fff;
+}
+
+.signal-strength {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.signal-strength.high   { color: #e74c3c; }
+.signal-strength.medium { color: #f39c12; }
+.signal-strength.low    { color: #95a5a6; }
+
+.signal-desc { font-size: 14px; font-weight: 600; color: #333; margin-bottom: 4px; }
+.signal-stat { font-size: 12px; color: #666; line-height: 1.5; }
+
+.signal-none {
+  padding: 14px 16px;
+  background: #f0f4f8;
+  border-radius: 8px;
+  color: #888;
+  font-size: 13px;
+}
+
+/* 합계 타겟 박스 */
+.pattern-target-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 16px 24px;
+  background: linear-gradient(135deg, #f0f7ff, #e8f4fd);
+  border: 2px solid #3498db;
+  border-radius: 12px;
+  text-align: center;
+}
+
+.pattern-target-label { font-size: 12px; color: #888; font-weight: 600; text-transform: uppercase; }
+.pattern-target-range { font-size: 28px; font-weight: 800; color: #2980b9; }
+.pattern-recent-sums  { font-size: 12px; color: #7f8c8d; margin-top: 4px; }
+
+/* 근거 */
+.pattern-rationale {
+  padding: 12px 16px;
+  background: #fffde7;
+  border: 1px solid #f9ca24;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #555;
+  line-height: 1.6;
+}
+
+/* 추천 번호에 합계 표시 */
+.rec-game-sum {
+  font-size: 12px;
+  color: #3498db;
+  font-weight: 600;
+  min-width: 50px;
+  text-align: right;
+}

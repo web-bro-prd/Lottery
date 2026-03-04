@@ -250,6 +250,25 @@ export interface RealSimResult {
   detail: RealSimDetail[];
 }
 
+// ───────── 패턴 기반 번호 추천 ─────────
+export interface PatternSignal {
+  name: string;
+  desc: string;
+  strength: 'high' | 'medium' | 'low';
+  stat: string;
+}
+
+export interface PatternRecommendResult {
+  detected_signals: PatternSignal[];
+  target_sum_min: number;
+  target_sum_max: number;
+  recent_sums: number[];
+  games: number[][];
+  scores: number[];
+  rationale: string;
+  n_games: number;
+}
+
 // ───────── 패턴 분석 ─────────
 export interface PatternBucketItem {
   count: number;

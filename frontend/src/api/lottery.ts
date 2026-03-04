@@ -18,6 +18,7 @@ import type {
   SavedFixedNumber,
   RealSimResult,
   PatternAnalysisResult,
+  PatternRecommendResult,
 } from '../types';
 
 // ───────── 상태 ─────────
@@ -166,3 +167,7 @@ export const updateFixedMemo = (id: number, memo: string): Promise<SavedFixedNum
 // ───────── 패턴 분석 ─────────
 export const fetchPatternAnalysis = (): Promise<PatternAnalysisResult> =>
   client.get('/backtest/pattern-analysis').then(r => r.data);
+
+// ───────── 패턴 기반 번호 추천 ─────────
+export const runPatternRecommend = (nGames: number = 9): Promise<PatternRecommendResult> =>
+  client.post('/backtest/pattern-recommend', null, { params: { n_games: nGames } }).then(r => r.data);

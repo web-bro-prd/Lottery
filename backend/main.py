@@ -25,7 +25,7 @@ from analysis.simulation import simulate_random, simulate_strategy, monte_carlo
 from analysis.backtest import (
     run_backtest, run_cumulative_backtest,
     generate_recommendations, generate_fixed_number,
-    run_real_sim, run_pattern_analysis,
+    run_real_sim, run_pattern_analysis, generate_pattern_recommend,
     METHODS, CONDITION_LABELS,
 )
 from recommender.engine import recommend_all, recommend_by_frequency, recommend_by_trend, recommend_balanced, recommend_random
@@ -495,6 +495,22 @@ def backtest_fixed():
     if len(draws) < 50:
         raise HTTPException(status_code=400, detail="데이터 부족 (최소 50회 필요)")
     return generate_fixed_number(draws)
+
+
+@app.post("/api/backtest/pattern-recommend")
+def backtest_pattern_recommend(n_games: int = 9):
+    """
+    패턴 기반 번호 추천
+    - 최근 회차 합계 방향/극단값 신호를 감지해 합계 타겟 범위를 좁힘
+    - 유의한 신호: 합계 2연속 방향(p<0.0001), 극단 합계 회귀(p=0.0123)
+    - 해당 합계 범위를 만족하는 n_games개 번호 조합 생성
+    """
+    draws = get_all_draws()
+    if len(draws) < 10:
+        raise HTTPException(status_code=400, detail="데이터 부족 (최소 10회 필요)")
+    if n_games < 1 or n_games > 50:
+        raise HTTPException(status_code=400, detail="n_games는 1~50 범위여야 합니다")
+    return generate_pattern_recommend(draws, n_games=n_games)
 
 
 @app.get("/api/backtest/pattern-analysis")
