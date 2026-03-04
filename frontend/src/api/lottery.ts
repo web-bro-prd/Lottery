@@ -19,6 +19,7 @@ import type {
   RealSimResult,
   PatternAnalysisResult,
   PatternRecommendResult,
+  PatternSimResult,
 } from '../types';
 
 // ───────── 상태 ─────────
@@ -171,3 +172,11 @@ export const fetchPatternAnalysis = (): Promise<PatternAnalysisResult> =>
 // ───────── 패턴 기반 번호 추천 ─────────
 export const runPatternRecommend = (nGames: number = 9): Promise<PatternRecommendResult> =>
   client.post('/backtest/pattern-recommend', null, { params: { n_games: nGames } }).then(r => r.data);
+
+// ───────── 통합 시뮬레이션 (패턴 vs 조건 vs 랜덤) ─────────
+export const runPatternSim = (params: {
+  n_games?: number;
+  sample_every?: number;
+  condition_window?: number;
+}): Promise<PatternSimResult> =>
+  client.post('/backtest/pattern-sim', null, { params }).then(r => r.data);

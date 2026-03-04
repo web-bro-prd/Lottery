@@ -871,6 +871,59 @@
   line-height: 1.6;
 }
 
+/* ── 통합 비교 카드 ── */
+.integrated-cards {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.integrated-card {
+  flex: 1;
+  min-width: 180px;
+  padding: 16px 18px;
+  border-radius: 12px;
+  border: 2px solid #eee;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.card-pattern  { border-color: #e74c3c; background: #fff5f5; }
+.card-condition { border-color: #3498db; background: #f0f7ff; }
+.card-random   { border-color: #bdc3c7; background: #f8f9fa; }
+
+.integrated-card-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #333;
+}
+
+.integrated-card-roi {
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.integrated-card-detail {
+  font-size: 12px;
+  color: #666;
+}
+
+.integrated-card-ranks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.rank-mini-badge {
+  font-size: 11px;
+  color: #fff;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 20px;
+}
+
 /* 추천 번호에 합계 표시 */
 .rec-game-sum {
   font-size: 12px;

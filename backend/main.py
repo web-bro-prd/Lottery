@@ -26,6 +26,7 @@ from analysis.backtest import (
     run_backtest, run_cumulative_backtest,
     generate_recommendations, generate_fixed_number,
     run_real_sim, run_pattern_analysis, generate_pattern_recommend,
+    run_pattern_sim,
     METHODS, CONDITION_LABELS,
 )
 from recommender.engine import recommend_all, recommend_by_frequency, recommend_by_trend, recommend_balanced, recommend_random
@@ -495,6 +496,36 @@ def backtest_fixed():
     if len(draws) < 50:
         raise HTTPException(status_code=400, detail="데이터 부족 (최소 50회 필요)")
     return generate_fixed_number(draws)
+
+
+@app.post("/api/backtest/pattern-sim")
+def backtest_pattern_sim(
+    n_games: int = 9,
+    sample_every: int = 1,
+    condition_window: int = 300,
+):
+    """
+    전체 회차 통합 시뮬레이션 — 패턴 기반 vs 조건 기반 vs 랜덤 3자 비교
+    - 1회부터 전체 회차를 순회하며 각 방식으로 번호 추천 후 실제 당첨번호 대조
+    - sample_every: N회마다 샘플링 (1=전체, 5=5회마다)
+    - 주의: sample_every=1이면 수 분 소요
+    """
+    draws = get_all_draws()
+    if len(draws) < 15:
+        raise HTTPException(status_code=400, detail="데이터 부족 (최소 15회 필요)")
+    if n_games < 1 or n_games > 20:
+        raise HTTPException(status_code=400, detail="n_games는 1~20 범위")
+    if sample_every < 1 or sample_every > 100:
+        raise HTTPException(status_code=400, detail="sample_every는 1~100 범위")
+    try:
+        return run_pattern_sim(
+            draws,
+            n_games=n_games,
+            condition_window=condition_window,
+            sample_every=sample_every,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/api/backtest/pattern-recommend")

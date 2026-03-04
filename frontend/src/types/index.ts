@@ -250,6 +250,39 @@ export interface RealSimResult {
   detail: RealSimDetail[];
 }
 
+// ───────── 통합 시뮬레이션 (패턴 vs 조건 vs 랜덤) ─────────
+export interface SimSummary {
+  label: string;
+  total_games: number;
+  total_prize: number;
+  net: number;
+  roi: number;
+  rank_counts: Record<string, number>;
+  rank_rate: Record<string, number>;
+}
+
+export interface PatternSimDetail {
+  round: number;
+  actual: number[];
+  bonus: number;
+  pattern_rank: number;
+  condition_rank: number;
+  pattern_game: number[];
+  condition_game: number[];
+  target_sum_min: number | null;
+  target_sum_max: number | null;
+}
+
+export interface PatternSimResult {
+  tested_rounds: number;
+  n_games: number;
+  total_spent: number;
+  pattern: SimSummary;
+  condition: SimSummary;
+  random: SimSummary;
+  detail: PatternSimDetail[];
+}
+
 // ───────── 패턴 기반 번호 추천 ─────────
 export interface PatternSignal {
   name: string;

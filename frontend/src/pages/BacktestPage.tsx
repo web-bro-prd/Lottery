@@ -12,6 +12,7 @@ import {
   updateFixedMemo,
   runRealSim,
   runPatternRecommend,
+  runPatternSim,
 } from '../api/lottery';
 import type {
   BacktestMethodsResponse,
@@ -22,6 +23,7 @@ import type {
   SavedFixedNumber,
   RealSimResult,
   PatternRecommendResult,
+  PatternSimResult,
 } from '../types';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -90,6 +92,16 @@ export default function BacktestPage() {
 
   // STEP3 탭
   const [step3Tab, setStep3Tab] = useState<'condition' | 'pattern'>('condition');
+
+  // STEP5 탭 + 통합 시뮬레이션
+  const [step5Tab, setStep5Tab] = useState<'condition' | 'integrated'>('condition');
+  const [patternSimResult, setPatternSimResult] = useState<PatternSimResult | null>(null);
+  const [patternSimLoading, setPatternSimLoading] = useState(false);
+  const [patternSimError, setPatternSimError] = useState('');
+  const [simNGames, setSimNGames] = useState(9);
+  const [simSampleEvery, setSimSampleEvery] = useState(5);
+  const [simCondWindow, setSimCondWindow] = useState(300);
+  const [showSimDetail, setShowSimDetail] = useState(false);
 
   const [btLoading, setBtLoading] = useState(false);
   const [recLoading, setRecLoading] = useState(false);
@@ -206,6 +218,26 @@ export default function BacktestPage() {
     await updateFixedMemo(id, editingMemoText);
     setEditingMemoId(null);
     loadSavedList();
+  };
+
+  const handlePatternSim = async () => {
+    setPatternSimLoading(true);
+    setPatternSimError('');
+    setPatternSimResult(null);
+    setShowSimDetail(false);
+    try {
+      const r = await runPatternSim({
+        n_games: simNGames,
+        sample_every: simSampleEvery,
+        condition_window: simCondWindow,
+      });
+      setPatternSimResult(r);
+    } catch (e: unknown) {
+      const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setPatternSimError(detail ?? '시뮬레이션 실패');
+    } finally {
+      setPatternSimLoading(false);
+    }
   };
 
   const handlePatternRecommend = async () => {
@@ -745,193 +777,363 @@ export default function BacktestPage() {
         </section>
       )}
 
-      {/* ── STEP 5: 실전 당첨 시뮬레이션 ── */}
+      {/* ── STEP 5: 실전 당첨 시뮬레이션 (탭) ── */}
       <section className="section real-sim-section">
         <h2 className="section-title">STEP 5 — 실전 당첨 시뮬레이션</h2>
-        <p className="section-desc">
-          역대 각 회차마다 추천번호 N게임을 생성하고 실제 당첨번호와 대조합니다.
-          랜덤 구매와 ROI를 비교해 전략의 실질적인 효과를 검증합니다.
-          <br />
-          <strong>주의:</strong> 처리 시간이 1~3분 소요될 수 있습니다. sample_every를 높이면 빠르게 샘플링합니다.
-        </p>
 
-        <div className="config-row">
-          <label>
-            예측 방법
-            <select
-              className="real-sim-select"
-              value={realSimMethod}
-              onChange={e => setRealSimMethod(e.target.value)}
-            >
-              {(meta?.methods ?? ['FREQUENCY','WEIGHTED_RECENT','CYCLE','TREND','ENSEMBLE']).map(m => (
-                <option key={m} value={m}>{m} — {METHOD_DESC[m] ?? ''}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            게임 수 (회차당)
-            <input type="number" min={1} max={20} value={realSimGames}
-              onChange={e => setRealSimGames(Number(e.target.value))} />
-          </label>
-          <label>
-            샘플 간격 (N회 마다)
-            <input type="number" min={1} max={50} value={realSimSampleEvery}
-              onChange={e => setRealSimSampleEvery(Number(e.target.value))} />
-          </label>
+        {/* 탭 헤더 */}
+        <div className="step3-tabs">
+          <button
+            className={`step3-tab ${step5Tab === 'condition' ? 'active' : ''}`}
+            onClick={() => setStep5Tab('condition')}
+          >
+            조건 기반 (단일 방법)
+          </button>
+          <button
+            className={`step3-tab pattern-tab ${step5Tab === 'integrated' ? 'active' : ''}`}
+            onClick={() => setStep5Tab('integrated')}
+          >
+            통합 비교 ★ (패턴 vs 조건 vs 랜덤)
+          </button>
         </div>
 
-        <button
-          className="btn-primary real-sim-run-btn"
-          onClick={handleRealSim}
-          disabled={realSimLoading}
-        >
-          {realSimLoading
-            ? `시뮬레이션 실행 중... (1~3분 소요)`
-            : `"${realSimMethod}" 실전 시뮬레이션 실행`}
-        </button>
-        {realSimError && <div className="error-msg">{realSimError}</div>}
+        {/* ── 탭 1: 기존 단일 방법 시뮬레이션 ── */}
+        {step5Tab === 'condition' && (
+          <div className="step3-tab-content">
+            <p className="section-desc">
+              역대 각 회차마다 추천번호 N게임을 생성하고 실제 당첨번호와 대조합니다.
+              랜덤 구매와 ROI를 비교해 전략의 실질적인 효과를 검증합니다.
+              <br />
+              <strong>주의:</strong> 처리 시간이 1~3분 소요될 수 있습니다.
+            </p>
 
-        {/* ── 시뮬레이션 결과 ── */}
-        {realSimResult && (
-          <div className="real-sim-result">
-            {/* 요약 카드 */}
-            <h3 className="chart-subtitle">
-              시뮬레이션 결과 — {realSimResult.method}
-              <span className="section-sub">
-                {realSimResult.tested_rounds}회차 검증 · 총 {realSimResult.total_games}게임
-              </span>
-            </h3>
-
-            <div className="stat-cards">
-              <div className="stat-card">
-                <div className="stat-label">총 투자금</div>
-                <div className="stat-value">{realSimResult.total_spent.toLocaleString()}원</div>
-              </div>
-              <div className="stat-card">
-                <div className="stat-label">총 당첨금</div>
-                <div className="stat-value">{realSimResult.total_prize.toLocaleString()}원</div>
-              </div>
-              <div className="stat-card">
-                <div className="stat-label">순손익</div>
-                <div className={`stat-value ${realSimResult.net >= 0 ? 'positive' : 'negative'}`}>
-                  {realSimResult.net >= 0 ? '+' : ''}{realSimResult.net.toLocaleString()}원
-                </div>
-              </div>
-              <div className="stat-card">
-                <div className="stat-label">ROI</div>
-                <div className={`stat-value ${realSimResult.roi >= 0 ? 'positive' : 'negative'}`}>
-                  {realSimResult.roi >= 0 ? '+' : ''}{realSimResult.roi.toFixed(1)}%
-                </div>
-              </div>
+            <div className="config-row">
+              <label>
+                예측 방법
+                <select
+                  className="real-sim-select"
+                  value={realSimMethod}
+                  onChange={e => setRealSimMethod(e.target.value)}
+                >
+                  {(meta?.methods ?? ['FREQUENCY','WEIGHTED_RECENT','CYCLE','TREND','ENSEMBLE']).map(m => (
+                    <option key={m} value={m}>{m} — {METHOD_DESC[m] ?? ''}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                게임 수 (회차당)
+                <input type="number" min={1} max={20} value={realSimGames}
+                  onChange={e => setRealSimGames(Number(e.target.value))} />
+              </label>
+              <label>
+                샘플 간격 (N회 마다)
+                <input type="number" min={1} max={50} value={realSimSampleEvery}
+                  onChange={e => setRealSimSampleEvery(Number(e.target.value))} />
+              </label>
             </div>
 
-            {/* 전략 vs 랜덤 비교 */}
-            <h3 className="chart-subtitle">전략 vs 랜덤 비교</h3>
-            <div className="sim-compare-table">
-              <div className="sim-compare-row sim-compare-header">
-                <div className="sim-compare-cell">항목</div>
-                <div className="sim-compare-cell highlight-cell">전략 ({realSimResult.method})</div>
-                <div className="sim-compare-cell">랜덤 구매</div>
-              </div>
-              <div className="sim-compare-row">
-                <div className="sim-compare-cell">ROI</div>
-                <div className={`sim-compare-cell highlight-cell ${realSimResult.roi >= realSimResult.random_roi ? 'positive' : 'negative'}`}>
-                  {realSimResult.roi.toFixed(1)}%
-                </div>
-                <div className="sim-compare-cell">{realSimResult.random_roi.toFixed(1)}%</div>
-              </div>
-              <div className="sim-compare-row">
-                <div className="sim-compare-cell">순손익</div>
-                <div className={`sim-compare-cell highlight-cell ${realSimResult.net >= realSimResult.random_net ? 'positive' : 'negative'}`}>
-                  {realSimResult.net.toLocaleString()}원
-                </div>
-                <div className="sim-compare-cell">{realSimResult.random_net.toLocaleString()}원</div>
-              </div>
-              {([1,2,3,4,5] as const).map(rank => (
-                <div key={rank} className="sim-compare-row">
-                  <div className="sim-compare-cell">{rank}등 당첨</div>
-                  <div className="sim-compare-cell highlight-cell">
-                    {realSimResult.rank_counts[rank]}회 ({realSimResult.rank_rate[rank].toFixed(2)}%)
-                  </div>
-                  <div className="sim-compare-cell">
-                    {realSimResult.random_counts[rank]}회 ({realSimResult.random_rate[rank].toFixed(2)}%)
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* 등수 분포 */}
-            <h3 className="chart-subtitle">등수별 당첨 분포</h3>
-            <div className="rank-summary">
-              {([1,2,3,4,5] as const).map(rank => (
-                <div key={rank} className="rank-item">
-                  <span className="rank-label">{rank}등</span>
-                  <span className="rank-count">{realSimResult.rank_counts[rank]}</span>
-                  <span className="rank-rate">{realSimResult.rank_rate[rank].toFixed(2)}%</span>
-                </div>
-              ))}
-              <div className="rank-item">
-                <span className="rank-label">낙첨</span>
-                <span className="rank-count">{realSimResult.rank_counts[0]}</span>
-                <span className="rank-rate">{realSimResult.rank_rate[0].toFixed(1)}%</span>
-              </div>
-            </div>
-
-            {/* 상세 회차 목록 토글 */}
             <button
-              className="btn-toggle-detail"
-              onClick={() => setShowDetail(v => !v)}
+              className="btn-primary real-sim-run-btn"
+              onClick={handleRealSim}
+              disabled={realSimLoading}
             >
-              {showDetail ? '▲ 회차별 상세 접기' : '▼ 회차별 상세 보기'}
+              {realSimLoading
+                ? `시뮬레이션 실행 중... (1~3분 소요)`
+                : `"${realSimMethod}" 실전 시뮬레이션 실행`}
             </button>
+            {realSimError && <div className="error-msg">{realSimError}</div>}
 
-            {showDetail && (
-              <div className="real-sim-detail">
-                <h3 className="chart-subtitle">회차별 상세 결과 (당첨 회차만)</h3>
-                {realSimResult.detail.filter(d => d.rank > 0).length === 0 ? (
-                  <p className="saved-empty">당첨된 회차가 없습니다.</p>
-                ) : (
-                  <div className="hit-rounds-list">
-                    {realSimResult.detail
-                      .filter(d => d.rank > 0)
-                      .map((d, i) => (
-                        <div key={i} className={`hit-round-item rank-${d.rank}`}>
-                          <div className="hit-round-meta">
-                            <span className="hit-round-no">{d.round}회</span>
-                            <span
-                              className="hit-rank-badge"
-                              style={{ background: ['#e74c3c','#e67e22','#f1c40f','#2ecc71','#3498db'][d.rank - 1] ?? '#aaa' }}
-                            >
-                              {d.rank}등
-                            </span>
-                            <span className="hit-round-date">
-                              매칭 {d.matched}개
-                            </span>
+            {realSimResult && (
+              <div className="real-sim-result">
+                <h3 className="chart-subtitle">
+                  시뮬레이션 결과 — {realSimResult.method}
+                  <span className="section-sub">
+                    {realSimResult.tested_rounds}회차 검증 · 총 {realSimResult.total_games}게임
+                  </span>
+                </h3>
+                <div className="stat-cards">
+                  <div className="stat-card">
+                    <div className="stat-label">총 투자금</div>
+                    <div className="stat-value">{realSimResult.total_spent.toLocaleString()}원</div>
+                  </div>
+                  <div className="stat-card">
+                    <div className="stat-label">총 당첨금</div>
+                    <div className="stat-value">{realSimResult.total_prize.toLocaleString()}원</div>
+                  </div>
+                  <div className="stat-card">
+                    <div className="stat-label">순손익</div>
+                    <div className={`stat-value ${realSimResult.net >= 0 ? 'positive' : 'negative'}`}>
+                      {realSimResult.net >= 0 ? '+' : ''}{realSimResult.net.toLocaleString()}원
+                    </div>
+                  </div>
+                  <div className="stat-card">
+                    <div className="stat-label">ROI</div>
+                    <div className={`stat-value ${realSimResult.roi >= 0 ? 'positive' : 'negative'}`}>
+                      {realSimResult.roi >= 0 ? '+' : ''}{realSimResult.roi.toFixed(1)}%
+                    </div>
+                  </div>
+                </div>
+                <h3 className="chart-subtitle">전략 vs 랜덤 비교</h3>
+                <div className="sim-compare-table">
+                  <div className="sim-compare-row sim-compare-header">
+                    <div className="sim-compare-cell">항목</div>
+                    <div className="sim-compare-cell highlight-cell">전략 ({realSimResult.method})</div>
+                    <div className="sim-compare-cell">랜덤 구매</div>
+                  </div>
+                  <div className="sim-compare-row">
+                    <div className="sim-compare-cell">ROI</div>
+                    <div className={`sim-compare-cell highlight-cell ${realSimResult.roi >= realSimResult.random_roi ? 'positive' : 'negative'}`}>
+                      {realSimResult.roi.toFixed(1)}%
+                    </div>
+                    <div className="sim-compare-cell">{realSimResult.random_roi.toFixed(1)}%</div>
+                  </div>
+                  <div className="sim-compare-row">
+                    <div className="sim-compare-cell">순손익</div>
+                    <div className={`sim-compare-cell highlight-cell ${realSimResult.net >= realSimResult.random_net ? 'positive' : 'negative'}`}>
+                      {realSimResult.net.toLocaleString()}원
+                    </div>
+                    <div className="sim-compare-cell">{realSimResult.random_net.toLocaleString()}원</div>
+                  </div>
+                  {([1,2,3,4,5] as const).map(rank => (
+                    <div key={rank} className="sim-compare-row">
+                      <div className="sim-compare-cell">{rank}등 당첨</div>
+                      <div className="sim-compare-cell highlight-cell">
+                        {realSimResult.rank_counts[rank]}회 ({realSimResult.rank_rate[rank].toFixed(2)}%)
+                      </div>
+                      <div className="sim-compare-cell">
+                        {realSimResult.random_counts[rank]}회 ({realSimResult.random_rate[rank].toFixed(2)}%)
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <h3 className="chart-subtitle">등수별 당첨 분포</h3>
+                <div className="rank-summary">
+                  {([1,2,3,4,5] as const).map(rank => (
+                    <div key={rank} className="rank-item">
+                      <span className="rank-label">{rank}등</span>
+                      <span className="rank-count">{realSimResult.rank_counts[rank]}</span>
+                      <span className="rank-rate">{realSimResult.rank_rate[rank].toFixed(2)}%</span>
+                    </div>
+                  ))}
+                  <div className="rank-item">
+                    <span className="rank-label">낙첨</span>
+                    <span className="rank-count">{realSimResult.rank_counts[0]}</span>
+                    <span className="rank-rate">{realSimResult.rank_rate[0].toFixed(1)}%</span>
+                  </div>
+                </div>
+                <button className="btn-toggle-detail" onClick={() => setShowDetail(v => !v)}>
+                  {showDetail ? '▲ 회차별 상세 접기' : '▼ 회차별 상세 보기'}
+                </button>
+                {showDetail && (
+                  <div className="real-sim-detail">
+                    <h3 className="chart-subtitle">회차별 상세 결과 (당첨 회차만)</h3>
+                    {realSimResult.detail.filter(d => d.rank > 0).length === 0 ? (
+                      <p className="saved-empty">당첨된 회차가 없습니다.</p>
+                    ) : (
+                      <div className="hit-rounds-list">
+                        {realSimResult.detail.filter(d => d.rank > 0).map((d, i) => (
+                          <div key={i} className={`hit-round-item rank-${d.rank}`}>
+                            <div className="hit-round-meta">
+                              <span className="hit-round-no">{d.round}회</span>
+                              <span className="hit-rank-badge" style={{ background: ['#e74c3c','#e67e22','#f1c40f','#2ecc71','#3498db'][d.rank - 1] ?? '#aaa' }}>
+                                {d.rank}등
+                              </span>
+                              <span className="hit-round-date">매칭 {d.matched}개</span>
+                            </div>
+                            <div className="hit-round-balls">
+                              <span style={{ fontSize: 11, color: '#aaa', marginRight: 6 }}>추천:</span>
+                              {d.game.map(n => <LottoBall key={n} number={n} size="sm" />)}
+                            </div>
+                            <div className="hit-round-balls">
+                              <span style={{ fontSize: 11, color: '#aaa', marginRight: 6 }}>실제:</span>
+                              {d.actual.map(n => <LottoBall key={n} number={n} size="sm" />)}
+                              {d.bonus != null && (<><span className="bonus-sep">+</span><LottoBall number={d.bonus} size="sm" /></>)}
+                            </div>
                           </div>
-                          <div className="hit-round-balls">
-                            <span style={{ fontSize: 11, color: '#aaa', marginRight: 6 }}>추천:</span>
-                            {d.game.map(n => (
-                              <LottoBall key={n} number={n} size="sm" />
-                            ))}
-                          </div>
-                          <div className="hit-round-balls">
-                            <span style={{ fontSize: 11, color: '#aaa', marginRight: 6 }}>실제:</span>
-                            {d.actual.map(n => (
-                              <LottoBall key={n} number={n} size="sm" />
-                            ))}
-                            {d.bonus != null && (
-                              <>
-                                <span className="bonus-sep">+</span>
-                                <LottoBall number={d.bonus} size="sm" />
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
             )}
+          </div>
+        )}
+
+        {/* ── 탭 2: 통합 비교 시뮬레이션 (패턴 vs 조건 vs 랜덤) ── */}
+        {step5Tab === 'integrated' && (
+          <div className="step3-tab-content">
+            <p className="section-desc">
+              <strong>1회부터 전체 회차</strong>를 순회하며 세 가지 방식의 번호를 생성해 실제 당첨번호와 대조합니다.
+              패턴 기반(합계 신호)·조건 기반(WEIGHTED_RECENT)·랜덤의 ROI와 당첨 횟수를 직접 비교합니다.
+              <br />
+              <strong>주의:</strong> sample_every=1이면 수 분 소요. 5~10 권장.
+            </p>
+            <div className="config-row">
+              <label>
+                게임 수 (회차당)
+                <input type="number" min={1} max={20} value={simNGames}
+                  onChange={e => setSimNGames(Number(e.target.value))} />
+              </label>
+              <label>
+                샘플 간격
+                <input type="number" min={1} max={100} value={simSampleEvery}
+                  onChange={e => setSimSampleEvery(Number(e.target.value))} />
+              </label>
+              <label>
+                조건 기반 학습 윈도우
+                <input type="number" min={50} max={800} value={simCondWindow}
+                  onChange={e => setSimCondWindow(Number(e.target.value))} />
+              </label>
+            </div>
+            <button
+              className="btn-primary btn-pattern real-sim-run-btn"
+              onClick={handlePatternSim}
+              disabled={patternSimLoading}
+            >
+              {patternSimLoading
+                ? '통합 시뮬레이션 실행 중... (수 분 소요)'
+                : `전체 회차 통합 시뮬레이션 실행 (${simNGames}게임 × 매 ${simSampleEvery}회)`}
+            </button>
+            {patternSimError && <div className="error-msg">{patternSimError}</div>}
+
+            {patternSimResult && (() => {
+              const { pattern, condition, random, tested_rounds, n_games, total_spent } = patternSimResult;
+              const rows = [pattern, condition, random];
+              const RANK_COLORS = ['#e74c3c','#e67e22','#f1c40f','#2ecc71','#3498db'];
+              return (
+                <div className="real-sim-result">
+                  <h3 className="chart-subtitle">
+                    통합 시뮬레이션 결과
+                    <span className="section-sub">
+                      {tested_rounds}회차 검증 · 회차당 {n_games}게임 · 총 투자 {total_spent.toLocaleString()}원
+                    </span>
+                  </h3>
+
+                  {/* 3자 비교 테이블 */}
+                  <div className="sim-compare-table">
+                    <div className="sim-compare-row sim-compare-header">
+                      <div className="sim-compare-cell">항목</div>
+                      <div className="sim-compare-cell highlight-cell" style={{ color: '#e74c3c' }}>패턴 기반 ★</div>
+                      <div className="sim-compare-cell" style={{ color: '#3498db' }}>조건 기반</div>
+                      <div className="sim-compare-cell">랜덤</div>
+                    </div>
+                    <div className="sim-compare-row">
+                      <div className="sim-compare-cell">ROI</div>
+                      {rows.map((r, i) => (
+                        <div key={i} className={`sim-compare-cell ${i === 0 ? 'highlight-cell' : ''} ${r.roi >= random.roi ? 'positive' : 'negative'}`}>
+                          {r.roi >= 0 ? '+' : ''}{r.roi.toFixed(2)}%
+                        </div>
+                      ))}
+                    </div>
+                    <div className="sim-compare-row">
+                      <div className="sim-compare-cell">순손익</div>
+                      {rows.map((r, i) => (
+                        <div key={i} className={`sim-compare-cell ${i === 0 ? 'highlight-cell' : ''} ${r.net >= 0 ? 'positive' : 'negative'}`}>
+                          {r.net >= 0 ? '+' : ''}{r.net.toLocaleString()}원
+                        </div>
+                      ))}
+                    </div>
+                    {([3,4,5] as const).map(rank => (
+                      <div key={rank} className="sim-compare-row">
+                        <div className="sim-compare-cell">{rank}등 당첨</div>
+                        {rows.map((r, i) => (
+                          <div key={i} className={`sim-compare-cell ${i === 0 ? 'highlight-cell' : ''}`}>
+                            {r.rank_counts[rank]}회 ({r.rank_rate[rank].toFixed(3)}%)
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                    <div className="sim-compare-row">
+                      <div className="sim-compare-cell">낙첨</div>
+                      {rows.map((r, i) => (
+                        <div key={i} className={`sim-compare-cell ${i === 0 ? 'highlight-cell' : ''}`}>
+                          {r.rank_counts[0]}회 ({r.rank_rate[0].toFixed(1)}%)
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* 3개 방식 카드 */}
+                  <h3 className="chart-subtitle">방식별 상세 요약</h3>
+                  <div className="integrated-cards">
+                    {rows.map((r, i) => (
+                      <div key={i} className={`integrated-card ${i === 0 ? 'card-pattern' : i === 1 ? 'card-condition' : 'card-random'}`}>
+                        <div className="integrated-card-title">{r.label}</div>
+                        <div className={`integrated-card-roi ${r.roi >= 0 ? 'positive' : 'negative'}`}>
+                          ROI {r.roi >= 0 ? '+' : ''}{r.roi.toFixed(2)}%
+                        </div>
+                        <div className="integrated-card-detail">
+                          순손익 {r.net >= 0 ? '+' : ''}{r.net.toLocaleString()}원
+                        </div>
+                        <div className="integrated-card-ranks">
+                          {([3,4,5] as const).map(rank => (
+                            <span key={rank} className="rank-mini-badge" style={{ background: RANK_COLORS[rank - 1] }}>
+                              {rank}등 {r.rank_counts[rank]}회
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* 당첨 상세 */}
+                  <button className="btn-toggle-detail" onClick={() => setShowSimDetail(v => !v)}>
+                    {showSimDetail ? '▲ 당첨 회차 상세 접기' : `▼ 당첨 회차 상세 보기 (3등 이상, ${patternSimResult.detail.length}건)`}
+                  </button>
+                  {showSimDetail && (
+                    <div className="real-sim-detail">
+                      {patternSimResult.detail.length === 0 ? (
+                        <p className="saved-empty">3등 이상 당첨 회차가 없습니다.</p>
+                      ) : (
+                        <div className="hit-rounds-list">
+                          {patternSimResult.detail.map((d, i) => (
+                            <div key={i} className="hit-round-item">
+                              <div className="hit-round-meta">
+                                <span className="hit-round-no">{d.round}회</span>
+                                {d.pattern_rank >= 3 && (
+                                  <span className="hit-rank-badge" style={{ background: RANK_COLORS[d.pattern_rank - 1] }}>
+                                    패턴 {d.pattern_rank}등
+                                  </span>
+                                )}
+                                {d.condition_rank >= 3 && (
+                                  <span className="hit-rank-badge" style={{ background: '#3498db' }}>
+                                    조건 {d.condition_rank}등
+                                  </span>
+                                )}
+                                {d.target_sum_min != null && (
+                                  <span className="rec-game-sum">
+                                    합계타겟 {d.target_sum_min}~{d.target_sum_max}
+                                  </span>
+                                )}
+                              </div>
+                              {d.pattern_rank >= 3 && (
+                                <div className="hit-round-balls">
+                                  <span style={{ fontSize: 11, color: '#e74c3c', marginRight: 6 }}>패턴:</span>
+                                  {d.pattern_game.map(n => <LottoBall key={n} number={n} size="sm" />)}
+                                </div>
+                              )}
+                              {d.condition_rank >= 3 && (
+                                <div className="hit-round-balls">
+                                  <span style={{ fontSize: 11, color: '#3498db', marginRight: 6 }}>조건:</span>
+                                  {d.condition_game.map(n => <LottoBall key={n} number={n} size="sm" />)}
+                                </div>
+                              )}
+                              <div className="hit-round-balls">
+                                <span style={{ fontSize: 11, color: '#aaa', marginRight: 6 }}>실제:</span>
+                                {d.actual.map(n => <LottoBall key={n} number={n} size="sm" />)}
+                                <span className="bonus-sep">+</span>
+                                <LottoBall number={d.bonus} size="sm" />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         )}
       </section>

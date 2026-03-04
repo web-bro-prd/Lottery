@@ -1185,3 +1185,152 @@ def generate_pattern_recommend(draws: list, n_games: int = 9) -> dict:
         "rationale":         rationale,
         "n_games":           n_games,
     }
+
+
+# ══════════════════════════════════════════════
+#  전체 회차 통합 시뮬레이션
+#  패턴 기반 vs 조건 기반(WEIGHTED_RECENT) vs 랜덤 3자 비교
+#  1회부터 전체 회차를 순회 (데이터 최소 10회 이상부터 시작)
+# ══════════════════════════════════════════════
+
+def run_pattern_sim(
+    draws: list,
+    n_games: int = 9,
+    min_history: int = 10,
+    condition_window: int = 300,
+    sample_every: int = 1,
+) -> dict:
+    """
+    전체 회차를 순회하며 패턴 기반 / 조건 기반 / 랜덤 3가지 방식의
+    번호 추천 결과를 실제 당첨번호와 대조.
+
+    Args:
+        draws:            전체 회차 데이터
+        n_games:          회차당 추천 게임 수
+        min_history:      시뮬레이션 시작 최소 이전 회차 수
+        condition_window: 조건 기반 추천 학습 윈도우 (기본 300)
+        sample_every:     N회마다 샘플링 (속도 조정, 1=전체)
+
+    Returns:
+        {
+          "pattern":   { rank_counts, rank_rate, total_games, total_prize, roi, net, ... },
+          "condition": { ... },
+          "random":    { ... },
+          "tested_rounds": int,
+          "n_games": int,
+          "detail": [ { round, pattern_rank, condition_rank, actual, pattern_game, ... }, ... ]  # 당첨 회차만
+        }
+    """
+    draws_sorted = sorted(draws, key=lambda d: d["round"])
+    total = len(draws_sorted)
+
+    def nums_of(d):
+        return sorted([d["num1"], d["num2"], d["num3"], d["num4"], d["num5"], d["num6"]])
+
+    def make_counters():
+        return {0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
+
+    # 결과 누적
+    p_counts = make_counters()   # 패턴 기반
+    c_counts = make_counters()   # 조건 기반
+    r_counts = make_counters()   # 랜덤
+
+    p_prize = c_prize = r_prize = 0
+    total_spent = 0
+    tested = 0
+    detail = []
+
+    for i in range(min_history, total, sample_every):
+        history = draws_sorted[:i]
+        target_draw = draws_sorted[i]
+        actual = nums_of(target_draw)
+        bonus = target_draw["bonus"]
+        round_no = target_draw["round"]
+
+        spent_this = n_games * TICKET_PRICE
+        total_spent += spent_this
+        tested += 1
+
+        # ── 1. 패턴 기반 추천 ──
+        try:
+            prec = generate_pattern_recommend(history, n_games=n_games)
+            p_games = prec["games"]
+        except Exception:
+            p_games = [sorted(random.sample(range(1, 46), 6)) for _ in range(n_games)]
+
+        # ── 2. 조건 기반 추천 (WEIGHTED_RECENT, window=min(condition_window, i)) ──
+        try:
+            win = min(condition_window, i - 1)
+            crec = generate_recommendations(history, method="WEIGHTED_RECENT",
+                                            window=win, n_games=n_games)
+            c_games = crec["games"]
+        except Exception:
+            c_games = [sorted(random.sample(range(1, 46), 6)) for _ in range(n_games)]
+
+        # ── 3. 랜덤 ──
+        r_games = [sorted(random.sample(range(1, 46), 6)) for _ in range(n_games)]
+
+        # ── 등수 집계 ──
+        best_p_rank = 0
+        for g in p_games:
+            rank = _check_rank(g, actual, bonus)
+            p_counts[rank] += 1
+            p_prize += PRIZE_TABLE.get(rank, 0)
+            if rank > best_p_rank:
+                best_p_rank = rank
+
+        best_c_rank = 0
+        for g in c_games:
+            rank = _check_rank(g, actual, bonus)
+            c_counts[rank] += 1
+            c_prize += PRIZE_TABLE.get(rank, 0)
+            if rank > best_c_rank:
+                best_c_rank = rank
+
+        for g in r_games:
+            rank = _check_rank(g, actual, bonus)
+            r_counts[rank] += 1
+            r_prize += PRIZE_TABLE.get(rank, 0)
+
+        # ── 당첨 회차 기록 (3등 이상) ──
+        if best_p_rank >= 3 or best_c_rank >= 3:
+            detail.append({
+                "round":          round_no,
+                "actual":         actual,
+                "bonus":          bonus,
+                "pattern_rank":   best_p_rank,
+                "condition_rank": best_c_rank,
+                "pattern_game":   next((g for g in p_games if _check_rank(g, actual, bonus) == best_p_rank), p_games[0]),
+                "condition_game": next((g for g in c_games if _check_rank(g, actual, bonus) == best_c_rank), c_games[0]),
+                "pattern_signals": prec.get("detected_signals", []),
+                "target_sum_min": prec.get("target_sum_min"),
+                "target_sum_max": prec.get("target_sum_max"),
+            })
+
+    def summarize(counts, prize, label):
+        games_total = sum(counts.values())
+        roi = prize / total_spent * 100 if total_spent else 0
+        net = prize - total_spent
+        rate = {k: round(v / games_total * 100, 4) if games_total else 0
+                for k, v in counts.items()}
+        return {
+            "label":       label,
+            "total_games": games_total,
+            "total_prize": prize,
+            "net":         net,
+            "roi":         round(roi, 2),
+            "rank_counts": counts,
+            "rank_rate":   rate,
+        }
+
+    logger.info(f"[pattern_sim] {tested}회차 시뮬레이션 완료")
+
+    return {
+        "tested_rounds": tested,
+        "n_games":       n_games,
+        "total_spent":   total_spent,
+        "pattern":       summarize(p_counts, p_prize, "패턴 기반"),
+        "condition":     summarize(c_counts, c_prize, "조건 기반(WEIGHTED_RECENT)"),
+        "random":        summarize(r_counts, r_prize, "랜덤"),
+        "detail":        detail,
+    }
