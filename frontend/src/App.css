@@ -21,6 +21,16 @@ body {
   min-width: 0;
 }
 
+@media (max-width: 768px) {
+  .app-layout {
+    flex-direction: column;
+  }
+
+  .app-main {
+    padding-top: 52px; /* 모바일 상단바 높이 */
+  }
+}
+
 /* 공통 */
 .page-title {
   font-size: 24px;

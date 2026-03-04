@@ -1,3 +1,9 @@
+/* ── 모바일 상단 바 (데스크탑에서는 숨김) ── */
+.mobile-topbar {
+  display: none;
+}
+
+/* ── 사이드바 기본 (데스크탑) ── */
 .sidebar {
   width: 220px;
   min-height: 100vh;
@@ -5,8 +11,10 @@
   color: #eee;
   display: flex;
   flex-direction: column;
-  padding: 0;
   flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  height: 100vh;
 }
 
 .sidebar-logo {
@@ -20,15 +28,14 @@
   color: #ffd700;
 }
 
-.logo-icon {
-  font-size: 24px;
-}
+.logo-icon { font-size: 24px; }
 
 .sidebar-menu {
   list-style: none;
   margin: 0;
   padding: 12px 0;
   flex: 1;
+  overflow-y: auto;
 }
 
 .sidebar-menu li {
@@ -62,4 +69,82 @@
   font-size: 16px;
   width: 20px;
   text-align: center;
+}
+
+/* ── 오버레이 (모바일 메뉴 열릴 때 배경) ── */
+.sidebar-overlay {
+  display: none;
+}
+
+/* ── 모바일 ── */
+@media (max-width: 768px) {
+  /* 상단 바 표시 */
+  .mobile-topbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 52px;
+    background: #1a1a2e;
+    padding: 0 16px;
+    z-index: 200;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  }
+
+  .mobile-logo {
+    font-size: 16px;
+    font-weight: 700;
+    color: #ffd700;
+  }
+
+  /* 햄버거 버튼 */
+  .hamburger {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    width: 24px;
+    height: 18px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    flex-shrink: 0;
+  }
+
+  .hamburger span {
+    display: block;
+    height: 2px;
+    background: #ffd700;
+    border-radius: 2px;
+    transition: all 0.2s;
+  }
+
+  /* 사이드바 — 평소에는 화면 밖으로 */
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: -220px;
+    height: 100vh;
+    z-index: 300;
+    transition: left 0.25s ease;
+    min-height: 100vh;
+    width: 220px;
+  }
+
+  /* 열린 상태 */
+  .sidebar.open {
+    left: 0;
+  }
+
+  /* 오버레이 */
+  .sidebar-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 250;
+  }
 }
