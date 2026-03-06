@@ -230,11 +230,8 @@ export const fetchPensionLatestDraws = (): Promise<{ draws: import('../types').P
 export const fetchPensionStats = (): Promise<PensionStats> =>
   client.get('/pension/stats').then(r => r.data);
 
-export const fetchPensionRecommend = (games?: number): Promise<PensionRecommendResult> => {
-  const params: Record<string, number> = {};
-  if (games) params.games = games;
-  return client.post('/pension/recommend', null, { params }).then(r => r.data);
-};
+export const fetchPensionRecommend = (games: number = 3): Promise<PensionRecommendResult> =>
+  client.post('/pension/recommend', { games }).then(r => r.data);
 
 export const fetchPensionWeeklyHistory = (): Promise<PensionWeeklyHistoryResponse> =>
   client.get('/pension/weekly-history').then(r => r.data);

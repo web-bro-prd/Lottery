@@ -45,11 +45,49 @@
 .digit-bar-fill { height: 100%; background: #27ae60; border-radius: 4px; }
 .digit-pct { font-size: 10px; color: #778; min-width: 34px; text-align: right; }
 
-/* HOT/COLD */
-.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
-.hot-cold-list { display: flex; flex-wrap: wrap; gap: 6px; }
-.hot-badge { background: rgba(231,76,60,0.2); color: #e74c3c; border-radius: 6px; padding: 4px 8px; font-size: 12px; font-weight: 700; }
-.cold-badge { background: rgba(52,152,219,0.2); color: #3498db; border-radius: 6px; padding: 4px 8px; font-size: 12px; font-weight: 700; }
+/* HOT/COLD grid by position */
+.hot-cold-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 10px;
+}
+
+.hot-cold-pos {
+  background: #121f12;
+  border: 1px solid #1e3a1e;
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.hot-cold-pos-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #2ecc71;
+  margin-bottom: 8px;
+}
+
+.hot-cold-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 5px;
+}
+
+.hc-title {
+  font-size: 9px;
+  font-weight: 700;
+  min-width: 28px;
+  text-align: center;
+  border-radius: 4px;
+  padding: 1px 4px;
+}
+
+.hot-title { background: rgba(231,76,60,0.2); color: #e74c3c; }
+.cold-title { background: rgba(52,152,219,0.2); color: #3498db; }
+
+.hot-badge { background: rgba(231,76,60,0.2); color: #e74c3c; border-radius: 6px; padding: 3px 7px; font-size: 12px; font-weight: 700; }
+.cold-badge { background: rgba(52,152,219,0.2); color: #3498db; border-radius: 6px; padding: 3px 7px; font-size: 12px; font-weight: 700; }
 
 .sum-info { font-size: 14px; color: #ccd; }
 .sum-info strong { color: #2ecc71; }

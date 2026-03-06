@@ -375,7 +375,8 @@ export interface WeeklyHistoryRecord {
 }
 
 export interface WeeklyHistoryResponse {
-  records: WeeklyHistoryRecord[];
+  history: WeeklyHistoryRecord[];
+  total: number;
 }
 
 // ───────── 연금복권720+ ─────────
@@ -445,7 +446,8 @@ export interface PensionWeeklyHistoryRecord {
 }
 
 export interface PensionWeeklyHistoryResponse {
-  records: PensionWeeklyHistoryRecord[];
+  history: PensionWeeklyHistoryRecord[];
+  total: number;
 }
 
 export interface PatternAnalysisResult {

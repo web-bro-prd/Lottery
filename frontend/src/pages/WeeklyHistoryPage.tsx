@@ -109,7 +109,7 @@ export default function WeeklyHistoryPage() {
 
   useEffect(() => {
     fetchWeeklyHistory()
-      .then(res => setRecords(res.records))
+      .then(res => setRecords(res.history ?? []))
       .catch(e => setError(String(e)))
       .finally(() => setLoading(false));
   }, []);
