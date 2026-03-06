@@ -351,6 +351,103 @@ export interface PatternBucketItem {
   theory_pct?: number;
 }
 
+// ───────── 주간 추천 히스토리 ─────────
+export interface WeeklyHistoryResultDetail {
+  game: number[];
+  rank: number;
+  matched: number;
+  is_fixed: boolean;
+  source_label: string;
+}
+
+export interface WeeklyHistoryRecord {
+  id: number;
+  target_round: number;
+  games: number[][];
+  scores: number[];
+  fixed: number[];
+  source_labels: string[];
+  sent_at: string;
+  actual_numbers: number[] | null;
+  actual_bonus: number | null;
+  result_detail: WeeklyHistoryResultDetail[] | null;
+  result_sent_at: string | null;
+}
+
+export interface WeeklyHistoryResponse {
+  records: WeeklyHistoryRecord[];
+}
+
+// ───────── 연금복권720+ ─────────
+export interface PensionDraw {
+  round: number;
+  draw_date: string;
+  grp: number;
+  num: string;
+  bonus_num: string;
+}
+
+export interface PensionDrawsResponse {
+  total: number;
+  draws: PensionDraw[];
+}
+
+export interface PensionStatus {
+  total_rounds: number;
+  latest_round: number | null;
+  latest_date: string | null;
+}
+
+export interface PensionDigitFreqItem {
+  digit: string;
+  count: number;
+  pct: number;
+}
+
+export interface PensionStats {
+  total_draws: number;
+  latest_round: number;
+  digit_frequency: PensionDigitFreqItem[][];   // 6자리, 각 자리별 10개 항목
+  group_distribution: Record<string, number>;  // {"1": count, ...}
+  hot_digits: PensionDigitFreqItem[];
+  cold_digits: PensionDigitFreqItem[];
+  odd_even: Record<string, number>;
+  sum_distribution: { average: number; min: number; max: number; buckets: Record<string, number> };
+}
+
+export interface PensionGame {
+  grp: number;
+  num: string;
+  strategy: string;
+}
+
+export interface PensionRecommendResult {
+  frequency: { games: PensionGame[]; strategy: string; description: string };
+  balanced:  { games: PensionGame[]; strategy: string; description: string };
+  random:    { games: PensionGame[]; strategy: string; description: string };
+}
+
+export interface PensionWeeklyResultDetail {
+  game: PensionGame;
+  rank: number;
+}
+
+export interface PensionWeeklyHistoryRecord {
+  id: number;
+  target_round: number;
+  games: PensionGame[];
+  sent_at: string;
+  actual_grp: number | null;
+  actual_num: string | null;
+  actual_bonus: string | null;
+  result_detail: PensionWeeklyResultDetail[] | null;
+  result_sent_at: string | null;
+}
+
+export interface PensionWeeklyHistoryResponse {
+  records: PensionWeeklyHistoryRecord[];
+}
+
 export interface PatternAnalysisResult {
   total_draws: number;
   sum_direction: {

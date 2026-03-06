@@ -1,0 +1,119 @@
+.pension-dashboard-page {
+  padding: 24px;
+  max-width: 900px;
+}
+
+.page-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #2ecc71;
+  margin-bottom: 20px;
+}
+
+.stat-cards {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 28px;
+}
+
+.stat-card {
+  background: #1e2e1e;
+  border: 1px solid #2d5a2d;
+  border-radius: 12px;
+  padding: 18px 24px;
+  min-width: 140px;
+  flex: 1;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #778;
+  margin-bottom: 6px;
+}
+
+.stat-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: #2ecc71;
+}
+
+.section { margin-top: 8px; }
+
+.section-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #ccd;
+  margin-bottom: 12px;
+}
+
+.pension-draws-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pension-draw-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #121f12;
+  border: 1px solid #1e3a1e;
+  border-radius: 8px;
+  padding: 10px 16px;
+  flex-wrap: wrap;
+}
+
+.pension-draw-round {
+  font-weight: 700;
+  color: #2ecc71;
+  min-width: 48px;
+  font-size: 13px;
+}
+
+.pension-draw-date {
+  color: #778;
+  font-size: 12px;
+  min-width: 90px;
+}
+
+.pension-draw-grp {
+  font-size: 16px;
+  font-weight: 800;
+  color: #2ecc71;
+  min-width: 28px;
+}
+
+.pension-draw-num {
+  font-family: 'Courier New', monospace;
+  font-size: 17px;
+  letter-spacing: 2px;
+  color: #eee;
+  font-weight: 700;
+}
+
+.pension-draw-bonus-label {
+  font-size: 10px;
+  color: #556;
+  background: rgba(255,255,255,0.05);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+.pension-draw-bonus {
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  color: #778;
+  letter-spacing: 1px;
+}
+
+.page-loading, .empty-msg {
+  padding: 48px;
+  text-align: center;
+  color: #778;
+}
+
+@media (max-width: 768px) {
+  .pension-dashboard-page { padding: 12px; }
+  .stat-cards { gap: 10px; }
+}

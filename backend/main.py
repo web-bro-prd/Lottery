@@ -20,8 +20,25 @@ from config import settings
 from database import (
     init_db, get_all_draws, get_draws_by_range, upsert_draw, get_latest_round,
     save_fixed_number, get_all_fixed_numbers, delete_fixed_number, update_fixed_number_memo,
+    # 연금복권
+    upsert_pension_draw, get_all_pension_draws, get_pension_draws_by_range,
+    get_latest_pension_round, save_pension_weekly_recommend,
+    get_pension_pending_result_rounds, update_pension_weekly_result,
+    # 주간 추천 히스토리
+    get_weekly_recommend,
 )
 from collector import fetch_draw, fetch_latest_round, collect_range, parse_csv_row, parse_xlsx
+from pension_collector import (
+    fetch_all_pension, fetch_new_pension_draws, fetch_latest_pension_round,
+    parse_pension_xlsx, parse_pension_csv_row,
+)
+from pension_analysis import (
+    get_full_pension_stats, simulate_pension_random, check_pension_rank,
+)
+from pension_recommender import (
+    recommend_all_pension, weekly_pension_pick, recommend_by_digit_frequency,
+    recommend_balanced as pension_recommend_balanced, recommend_random as pension_recommend_random,
+)
 from analysis.stats import get_full_stats, frequency_analysis, trend_analysis
 from analysis.simulation import simulate_random, simulate_strategy, monte_carlo
 from analysis.backtest import (
@@ -632,6 +649,224 @@ def backtest_real_sim(
                             n_games=n_games, sample_every=sample_every)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ───────────────────────────────────── 주간 추천 히스토리 ──
+@app.get("/api/weekly-history")
+def weekly_history(limit: int = 20):
+    """
+    주간 추천번호 히스토리 (최신순)
+    - 이번 주 추천 + 과거 추천/결과 목록 반환
+    - tbl_weekly_recommend 전체 조회 → 최신 limit개
+    """
+    import sqlite3, json as _json
+    from config import settings as _s
+    import os as _os
+
+    _os.makedirs(_os.path.dirname(_s.DB_PATH), exist_ok=True)
+    conn = sqlite3.connect(_s.DB_PATH)
+    conn.row_factory = sqlite3.Row
+    # source_labels 컬럼 없을 수 있으므로 마이그레이션
+    try:
+        conn.execute("ALTER TABLE tbl_weekly_recommend ADD COLUMN source_labels TEXT")
+        conn.commit()
+    except Exception:
+        pass
+
+    rows = conn.execute(
+        "SELECT * FROM tbl_weekly_recommend ORDER BY target_round DESC LIMIT ?", (limit,)
+    ).fetchall()
+    conn.close()
+
+    history = []
+    for row in rows:
+        d = dict(row)
+        try:
+            d["games"]  = _json.loads(d["games"])  if d.get("games")  else []
+        except Exception:
+            d["games"] = []
+        try:
+            d["scores"] = _json.loads(d["scores"]) if d.get("scores") else []
+        except Exception:
+            d["scores"] = []
+        try:
+            d["fixed"]  = _json.loads(d["fixed"])  if d.get("fixed")  else []
+        except Exception:
+            d["fixed"] = []
+        try:
+            d["source_labels"] = _json.loads(d["source_labels"]) if d.get("source_labels") else []
+        except Exception:
+            d["source_labels"] = []
+        if d.get("actual_numbers"):
+            try:
+                d["actual_numbers"] = _json.loads(d["actual_numbers"])
+            except Exception:
+                pass
+        if d.get("result_detail"):
+            try:
+                d["result_detail"] = _json.loads(d["result_detail"])
+            except Exception:
+                pass
+        history.append(d)
+    return {"history": history, "total": len(history)}
+
+
+# ───────────────────────────────────── 연금복권 ──
+
+class PensionSimRequest(BaseModel):
+    games_per_round: int = 5
+
+class PensionRecommendRequest(BaseModel):
+    strategy: str = "all"   # all | frequency | balanced | random
+    games: int = 5
+
+
+@app.get("/api/pension/status")
+def pension_status():
+    """연금복권 DB 현황"""
+    draws = get_all_pension_draws()
+    latest = draws[-1] if draws else None
+    return {
+        "total_rounds": len(draws),
+        "latest_round": latest["round"] if latest else None,
+        "latest_date":  latest["draw_date"] if latest else None,
+    }
+
+
+@app.post("/api/pension/collect/latest")
+async def pension_collect_latest(background_tasks: BackgroundTasks):
+    """최신 연금복권 회차 자동 수집 (백그라운드)"""
+    db_latest = get_latest_pension_round()
+
+    def _collect():
+        new_draws = fetch_new_pension_draws(db_latest)
+        for d in new_draws:
+            upsert_pension_draw(d)
+        logger.info(f"[pension_collect] {len(new_draws)}회차 저장 완료")
+
+    background_tasks.add_task(_collect)
+    return {
+        "status": "started",
+        "db_latest_round": db_latest,
+        "message": "백그라운드에서 연금복권 데이터 수집 중입니다",
+    }
+
+
+@app.post("/api/pension/collect/all")
+async def pension_collect_all(background_tasks: BackgroundTasks):
+    """연금복권 전체 회차 수집 (백그라운드)"""
+    def _collect():
+        all_draws = fetch_all_pension()
+        for d in all_draws:
+            upsert_pension_draw(d)
+        logger.info(f"[pension_collect_all] {len(all_draws)}회차 저장 완료")
+
+    background_tasks.add_task(_collect)
+    return {"status": "started", "message": "전체 연금복권 데이터 수집 시작"}
+
+
+@app.post("/api/pension/collect/upload-xlsx")
+async def pension_upload_xlsx(file: UploadFile = File(...)):
+    """연금복권 엑셀 업로드"""
+    if not file.filename or not file.filename.endswith(".xlsx"):
+        raise HTTPException(status_code=400, detail="xlsx 파일만 업로드 가능합니다")
+    content = await file.read()
+    try:
+        data_list = parse_pension_xlsx(content)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"엑셀 파싱 실패: {e}")
+    success, fail = 0, 0
+    for d in data_list:
+        try:
+            upsert_pension_draw(d)
+            success += 1
+        except Exception as e:
+            logger.warning(f"[pension_upload_xlsx] upsert 실패: {e}")
+            fail += 1
+    return {"status": "ok", "filename": file.filename, "success": success, "fail": fail}
+
+
+@app.get("/api/pension/draws")
+def pension_draws(start: Optional[int] = None, end: Optional[int] = None):
+    """연금복권 당첨번호 조회"""
+    if start and end:
+        draws = get_pension_draws_by_range(start, end)
+    else:
+        draws = get_all_pension_draws()
+    return {"total": len(draws), "draws": draws}
+
+
+@app.get("/api/pension/draws/latest")
+def pension_draws_latest():
+    """연금복권 최신 5회차"""
+    draws = get_all_pension_draws()
+    return {"draws": draws[-5:] if draws else []}
+
+
+@app.get("/api/pension/stats")
+def pension_stats():
+    """연금복권 전체 통계"""
+    draws = get_all_pension_draws()
+    if not draws:
+        raise HTTPException(status_code=404, detail="데이터 없음 — 먼저 연금복권 데이터를 수집하세요")
+    return get_full_pension_stats(draws)
+
+
+@app.post("/api/pension/recommend")
+def pension_recommend(req: PensionRecommendRequest):
+    """연금복권 번호 추천"""
+    valid = {"all", "frequency", "balanced", "random"}
+    if req.strategy not in valid:
+        raise HTTPException(status_code=400, detail=f"strategy는 {valid} 중 하나")
+    draws = get_all_pension_draws()
+    if req.strategy == "all":
+        return recommend_all_pension(draws, games=req.games)
+    elif req.strategy == "frequency":
+        return {"games": recommend_by_digit_frequency(draws, games=req.games), "strategy": "frequency"}
+    elif req.strategy == "balanced":
+        return {"games": pension_recommend_balanced(draws, games=req.games), "strategy": "balanced"}
+    elif req.strategy == "random":
+        return {"games": pension_recommend_random(games=req.games), "strategy": "random"}
+
+
+@app.post("/api/pension/simulate/random")
+def pension_simulate_random(req: PensionSimRequest):
+    """연금복권 랜덤 구매 시뮬레이션"""
+    if req.games_per_round < 1 or req.games_per_round > 50:
+        raise HTTPException(status_code=400, detail="games_per_round는 1~50 범위")
+    draws = get_all_pension_draws()
+    if not draws:
+        raise HTTPException(status_code=404, detail="데이터 없음")
+    return simulate_pension_random(draws, games_per_round=req.games_per_round)
+
+
+@app.get("/api/pension/weekly-history")
+def pension_weekly_history(limit: int = 20):
+    """연금복권 주간 추천 히스토리"""
+    import sqlite3, json as _json
+    from config import settings as _s
+    import os as _os
+    _os.makedirs(_os.path.dirname(_s.DB_PATH), exist_ok=True)
+    conn = sqlite3.connect(_s.DB_PATH)
+    conn.row_factory = sqlite3.Row
+    rows = conn.execute(
+        "SELECT * FROM tbl_pension_weekly_recommend ORDER BY target_round DESC LIMIT ?", (limit,)
+    ).fetchall()
+    conn.close()
+    history = []
+    for row in rows:
+        d = dict(row)
+        try:
+            d["games"] = _json.loads(d["games"]) if d.get("games") else []
+        except Exception:
+            d["games"] = []
+        if d.get("result_detail"):
+            try:
+                d["result_detail"] = _json.loads(d["result_detail"])
+            except Exception:
+                pass
+        history.append(d)
+    return {"history": history, "total": len(history)}
 
 
 # ───────────────────────────────────── 서버 상태 ──

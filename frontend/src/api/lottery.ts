@@ -21,6 +21,12 @@ import type {
   PatternRecommendResult,
   PatternSimResult,
   WeeklyPickResult,
+  WeeklyHistoryResponse,
+  PensionStatus,
+  PensionDrawsResponse,
+  PensionStats,
+  PensionRecommendResult,
+  PensionWeeklyHistoryResponse,
 } from '../types';
 
 // ───────── 상태 ─────────
@@ -188,3 +194,47 @@ export const startPatternSim = (params: {
 
 export const pollPatternSim = (taskId: string): Promise<{ status: string } & Partial<PatternSimResult>> =>
   client.get(`/backtest/pattern-sim/${taskId}`).then(r => r.data);
+
+// ───────── 주간 추천 히스토리 ─────────
+export const fetchWeeklyHistory = (): Promise<WeeklyHistoryResponse> =>
+  client.get('/weekly-history').then(r => r.data);
+
+// ───────── 연금복권720+ ─────────
+export const fetchPensionStatus = (): Promise<PensionStatus> =>
+  client.get('/pension/status').then(r => r.data);
+
+export const collectPensionLatest = (): Promise<{ status: string; message: string }> =>
+  client.post('/pension/collect/latest').then(r => r.data);
+
+export const collectPensionAll = (): Promise<{ status: string; saved: number }> =>
+  client.post('/pension/collect/all').then(r => r.data);
+
+export const uploadPensionXlsx = (file: File): Promise<{ status: string; success: number; fail: number }> => {
+  const form = new FormData();
+  form.append('file', file);
+  return client.post('/pension/collect/upload-xlsx', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }).then(r => r.data);
+};
+
+export const fetchPensionDraws = (start?: number, end?: number): Promise<PensionDrawsResponse> => {
+  const params: Record<string, number> = {};
+  if (start) params.start = start;
+  if (end) params.end = end;
+  return client.get('/pension/draws', { params }).then(r => r.data);
+};
+
+export const fetchPensionLatestDraws = (): Promise<{ draws: import('../types').PensionDraw[] }> =>
+  client.get('/pension/draws/latest').then(r => r.data);
+
+export const fetchPensionStats = (): Promise<PensionStats> =>
+  client.get('/pension/stats').then(r => r.data);
+
+export const fetchPensionRecommend = (games?: number): Promise<PensionRecommendResult> => {
+  const params: Record<string, number> = {};
+  if (games) params.games = games;
+  return client.post('/pension/recommend', null, { params }).then(r => r.data);
+};
+
+export const fetchPensionWeeklyHistory = (): Promise<PensionWeeklyHistoryResponse> =>
+  client.get('/pension/weekly-history').then(r => r.data);

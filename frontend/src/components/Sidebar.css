@@ -30,6 +30,37 @@
 
 .logo-icon { font-size: 24px; }
 
+/* ── 섹션 탭 (로또 / 연금복권) ── */
+.sidebar-tabs {
+  display: flex;
+  margin: 8px 8px 0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #2d2d44;
+}
+
+.sidebar-tab {
+  flex: 1;
+  padding: 8px 4px;
+  background: none;
+  border: none;
+  color: #aab;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.sidebar-tab:hover {
+  background: #3d3d55;
+  color: #fff;
+}
+
+.sidebar-tab.active {
+  background: #ffd700;
+  color: #1a1a2e;
+}
+
 .sidebar-menu {
   list-style: none;
   margin: 0;

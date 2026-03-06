@@ -1,0 +1,254 @@
+.weekly-history-page {
+  padding: 24px;
+  max-width: 900px;
+}
+
+/* ── 이번 주 섹션 ── */
+.this-week-section {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  border: 2px solid #ffd700;
+  border-radius: 16px;
+  padding: 28px 24px;
+  margin-bottom: 32px;
+}
+
+.this-week-round-badge {
+  display: inline-block;
+  background: #ffd700;
+  color: #1a1a2e;
+  font-weight: 800;
+  font-size: 20px;
+  padding: 4px 16px;
+  border-radius: 20px;
+  margin-bottom: 20px;
+}
+
+.this-week-games {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.this-week-game {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 10px;
+  padding: 10px 14px;
+}
+
+.this-week-game.fixed-game {
+  background: rgba(255, 215, 0, 0.12);
+  border: 1px solid rgba(255, 215, 0, 0.4);
+}
+
+.tw-game-label {
+  min-width: 60px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #aab;
+  text-align: center;
+  background: rgba(255,255,255,0.1);
+  border-radius: 6px;
+  padding: 2px 6px;
+}
+
+.tw-balls {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.this-week-info {
+  margin-top: 16px;
+  font-size: 12px;
+  color: #778;
+}
+
+/* ── 히스토리 섹션 ── */
+.history-section {
+  margin-top: 8px;
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.history-card {
+  border-radius: 10px;
+  border: 1px solid #2d2d44;
+  background: #1e1e33;
+  overflow: hidden;
+}
+
+.history-card.has-result {
+  border-color: #3d3d5c;
+}
+
+.history-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  cursor: pointer;
+  flex-wrap: wrap;
+}
+
+.history-card-header:hover {
+  background: rgba(255,255,255,0.04);
+}
+
+.history-card-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+}
+
+.history-round {
+  font-weight: 700;
+  font-size: 15px;
+  color: #ffd700;
+  min-width: 52px;
+}
+
+.history-date {
+  font-size: 12px;
+  color: #778;
+}
+
+.history-best-rank {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.history-pending {
+  font-size: 11px;
+  color: #778;
+  background: rgba(255,255,255,0.06);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.history-actual {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.history-actual-label {
+  font-size: 11px;
+  color: #778;
+  white-space: nowrap;
+}
+
+.history-actual-balls {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.expand-icon {
+  font-size: 11px;
+  color: #556;
+}
+
+/* ── 카드 내부 게임 목록 ── */
+.history-card-body {
+  border-top: 1px solid #2d2d44;
+  padding: 8px 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.game-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.03);
+  flex-wrap: wrap;
+}
+
+.game-idx {
+  font-size: 11px;
+  color: #556;
+  min-width: 18px;
+  text-align: right;
+}
+
+.game-source {
+  font-size: 10px;
+  min-width: 40px;
+  color: #778;
+  background: rgba(255,255,255,0.06);
+  border-radius: 4px;
+  padding: 1px 5px;
+  text-align: center;
+}
+
+.game-balls {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+  flex-wrap: wrap;
+}
+
+.game-rank {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+
+.game-matched {
+  font-size: 10px;
+  color: #778;
+}
+
+/* 등수 색상 */
+.rank-1 { background: rgba(255,215,0,0.18); color: #ffd700 !important; }
+.rank-2 { background: rgba(230,126,34,0.18); color: #e67e22 !important; }
+.rank-3 { background: rgba(46,204,113,0.18); color: #2ecc71 !important; }
+.rank-4, .rank-5 { background: rgba(52,152,219,0.18); color: #3498db !important; }
+.rank-0 { background: rgba(255,255,255,0.03); color: #556 !important; }
+
+.fixed-tag {
+  color: #ffd700 !important;
+  background: rgba(255,215,0,0.1) !important;
+}
+
+/* 공통 */
+.page-loading, .page-error, .empty-msg {
+  padding: 48px;
+  text-align: center;
+  color: #778;
+}
+.page-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #ffd700;
+  margin-bottom: 20px;
+}
+.section-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #ccd;
+  margin-bottom: 12px;
+}
+
+@media (max-width: 768px) {
+  .weekly-history-page { padding: 12px; }
+  .this-week-section { padding: 16px 12px; }
+  .tw-balls { gap: 4px; }
+  .history-card-header { padding: 10px 12px; gap: 8px; }
+}

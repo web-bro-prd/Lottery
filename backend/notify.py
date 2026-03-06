@@ -175,6 +175,122 @@ def send_result(
     return _post(WEBHOOK_RESULT, payload)
 
 
+# ── 연금복권 주간 추천번호 전송 ──────────────────────
+def send_pension_weekly_numbers(
+    latest_round: int,
+    latest_grp: int,
+    latest_num: str,
+    games: list,          # [{"grp":2,"num":"331316","strategy":"frequency"}, ...]
+    next_round: int,
+) -> bool:
+    """연금복권720+ 주간 추천번호 디스코드 전송"""
+
+    def _fmt_game(g: dict, idx: int) -> str:
+        strategy_tag = {
+            "frequency": "빈도",
+            "balanced":  "균형",
+            "random":    "랜덤",
+        }.get(g.get("strategy", ""), "")
+        tag = f"[{strategy_tag}] " if strategy_tag else ""
+        return f"`{idx:02d}`  {tag}**{g.get('grp', '?')}조**  `{str(g.get('num','?')).zfill(6)}`"
+
+    games_text = "\n".join(_fmt_game(g, i+1) for i, g in enumerate(games)) or "—"
+
+    payload = {
+        "embeds": [{
+            "title": f"💰  연금복권720+ {next_round}회 번호 추천",
+            "color": 0x2ecc71,
+            "fields": [
+                {
+                    "name": f"📋  {latest_round}회 지난주 당첨번호",
+                    "value": f"**{latest_grp}조**  `{str(latest_num).zfill(6)}`",
+                    "inline": False,
+                },
+                {
+                    "name": f"🎰  추천번호 {len(games)}게임",
+                    "value": games_text,
+                    "inline": False,
+                },
+            ],
+            "footer": {"text": "lottery.web-bro.com  |  매주 목요일 추첨"},
+        }]
+    }
+    return _post(WEBHOOK_RECOMMEND, payload)
+
+
+# ── 연금복권 당첨/낙첨 결과 전송 ──────────────────────
+def send_pension_result(
+    target_round: int,
+    actual_grp: int,
+    actual_num: str,
+    actual_bonus: str,
+    result_detail: list,  # [{"game":{"grp":2,"num":"331316"},"rank":0}, ...]
+) -> bool:
+    """연금복권720+ 당첨 결과 디스코드 전송"""
+
+    RANK_LABEL = {
+        1: "🥇 1등", 2: "🥈 2등", 3: "🥉 3등",
+        4: "4등  ", 5: "5등  ", 6: "6등  ", 7: "7등  ", 0: "낙첨  ",
+    }
+
+    rank_counts: dict = {}
+    for r in result_detail:
+        rank_counts[r["rank"]] = rank_counts.get(r["rank"], 0) + 1
+
+    best_rank = min((r["rank"] for r in result_detail if r["rank"] > 0), default=0)
+    if best_rank == 1:
+        color, header = 0xf1c40f, "🎉  1등 당첨!!"
+    elif best_rank == 2:
+        color, header = 0xe67e22, "🎉  2등 당첨!"
+    elif best_rank == 3:
+        color, header = 0x2ecc71, "🎊  3등 당첨!"
+    elif best_rank in (4, 5, 6, 7):
+        color, header = 0x3498db, f"🎊  {best_rank}등 당첨!"
+    else:
+        color, header = 0x95a5a6, "😔  이번 주는 낙첨"
+
+    rec_lines = []
+    for r in result_detail:
+        g = r.get("game", {})
+        lbl = RANK_LABEL.get(r["rank"], "낙첨  ")
+        rec_lines.append(f"`{lbl}`  **{g.get('grp','?')}조**  `{str(g.get('num','?')).zfill(6)}`")
+    rec_text = "\n".join(rec_lines) if rec_lines else "—"
+
+    summary_parts = []
+    for k in [1, 2, 3, 4, 5, 6, 7, 0]:
+        cnt = rank_counts.get(k, 0)
+        if cnt:
+            summary_parts.append(f"{RANK_LABEL[k].strip()}: {cnt}게임")
+    summary = "  |  ".join(summary_parts)
+
+    payload = {
+        "embeds": [{
+            "title": f"💰  연금복권720+ {target_round}회 결과",
+            "description": header,
+            "color": color,
+            "fields": [
+                {
+                    "name": f"📋  {target_round}회 실제 당첨번호",
+                    "value": f"**{actual_grp}조**  `{str(actual_num).zfill(6)}`  (보너스: `{str(actual_bonus).zfill(6)}`)",
+                    "inline": False,
+                },
+                {
+                    "name": f"🎰  추천번호 결과 ({len(rec_lines)}게임)",
+                    "value": rec_text,
+                    "inline": False,
+                },
+                {
+                    "name": "📊  집계",
+                    "value": summary or "전체 낙첨",
+                    "inline": False,
+                },
+            ],
+            "footer": {"text": "lottery.web-bro.com"},
+        }]
+    }
+    return _post(WEBHOOK_RESULT, payload)
+
+
 # ── 오류 알림 ────────────────────────────────────
 def send_error(message: str):
     _post(WEBHOOK_RESULT, {

@@ -1,0 +1,63 @@
+.pension-stats-page { padding: 24px; max-width: 960px; }
+.page-title { font-size: 22px; font-weight: 700; color: #2ecc71; margin-bottom: 8px; }
+.stats-meta { font-size: 12px; color: #778; margin-bottom: 20px; }
+.section { margin-top: 28px; }
+.section-title { font-size: 16px; font-weight: 600; color: #ccd; margin-bottom: 14px; }
+
+/* 조 분포 */
+.grp-bars { display: flex; flex-direction: column; gap: 8px; }
+.grp-bar-row { display: flex; align-items: center; gap: 12px; }
+.grp-label { min-width: 30px; color: #2ecc71; font-weight: 700; font-size: 13px; }
+.grp-bar-bg { flex: 1; max-width: 300px; height: 14px; background: #1e3a1e; border-radius: 7px; overflow: hidden; }
+.grp-bar-fill { height: 100%; background: #2ecc71; border-radius: 7px; transition: width 0.4s; }
+.grp-count { font-size: 12px; color: #778; min-width: 100px; }
+
+/* 자릿수 빈도 */
+.digit-freq-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px;
+}
+
+.digit-freq-pos {
+  background: #121f12;
+  border: 1px solid #1e3a1e;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.digit-freq-pos-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #2ecc71;
+  margin-bottom: 8px;
+}
+
+.digit-freq-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.digit-label { min-width: 14px; font-size: 12px; color: #dde; font-weight: 700; }
+.digit-bar-bg { flex: 1; height: 8px; background: #1e3a1e; border-radius: 4px; overflow: hidden; }
+.digit-bar-fill { height: 100%; background: #27ae60; border-radius: 4px; }
+.digit-pct { font-size: 10px; color: #778; min-width: 34px; text-align: right; }
+
+/* HOT/COLD */
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.hot-cold-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.hot-badge { background: rgba(231,76,60,0.2); color: #e74c3c; border-radius: 6px; padding: 4px 8px; font-size: 12px; font-weight: 700; }
+.cold-badge { background: rgba(52,152,219,0.2); color: #3498db; border-radius: 6px; padding: 4px 8px; font-size: 12px; font-weight: 700; }
+
+.sum-info { font-size: 14px; color: #ccd; }
+.sum-info strong { color: #2ecc71; }
+
+.page-loading, .page-error { padding: 48px; text-align: center; color: #778; }
+
+@media (max-width: 768px) {
+  .pension-stats-page { padding: 12px; }
+  .digit-freq-grid { grid-template-columns: repeat(3, 1fr); }
+  .two-col { grid-template-columns: 1fr; }
+}

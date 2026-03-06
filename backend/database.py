@@ -80,6 +80,34 @@ def init_db():
         )
     """)
 
+    # 연금복권720+ 당첨번호 테이블
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS tbl_pension_draw (
+            round        INTEGER PRIMARY KEY,   -- 회차
+            draw_date    TEXT NOT NULL,          -- 추첨일 (YYYY-MM-DD)
+            grp          INTEGER NOT NULL,       -- 당첨 조 (1~5)
+            num          TEXT NOT NULL,          -- 당첨 6자리 번호 (문자열)
+            bonus_num    TEXT NOT NULL,          -- 보너스 6자리 번호 (문자열)
+            created_at   TEXT DEFAULT (datetime('now','localtime'))
+        )
+    """)
+
+    # 연금복권 주간 추천번호 저장 테이블
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS tbl_pension_weekly_recommend (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            target_round INTEGER NOT NULL UNIQUE,  -- 추천 대상 회차
+            games        TEXT NOT NULL,             -- JSON: [{"grp":2,"num":"331316"}, ...]
+            sent_at      TEXT DEFAULT (datetime('now','localtime')),
+            -- 결과 기록
+            actual_grp   INTEGER,                   -- 실제 당첨 조
+            actual_num   TEXT,                      -- 실제 당첨번호
+            actual_bonus TEXT,                      -- 실제 보너스번호
+            result_detail TEXT,                     -- JSON: [{rank, game}, ...]
+            result_sent_at TEXT
+        )
+    """)
+
     conn.commit()
     conn.close()
 
@@ -273,6 +301,124 @@ def update_weekly_result(target_round: int, actual_numbers: list, actual_bonus: 
         json.dumps(actual_numbers),
         actual_bonus,
         json.dumps(result_detail),
+        target_round,
+    ))
+    conn.commit()
+    conn.close()
+
+
+# ── 연금복권720+ CRUD ─────────────────────────────
+
+def upsert_pension_draw(data: dict):
+    """연금복권 당첨번호 upsert"""
+    conn = get_db()
+    conn.execute("""
+        INSERT OR REPLACE INTO tbl_pension_draw
+            (round, draw_date, grp, num, bonus_num)
+        VALUES
+            (:round, :draw_date, :grp, :num, :bonus_num)
+    """, data)
+    conn.commit()
+    conn.close()
+
+
+def get_all_pension_draws() -> list:
+    """연금복권 전체 회차 반환 (오름차순)"""
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT * FROM tbl_pension_draw ORDER BY round ASC"
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_pension_draws_by_range(start: int, end: int) -> list:
+    """연금복권 특정 회차 범위 반환"""
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT * FROM tbl_pension_draw WHERE round BETWEEN ? AND ? ORDER BY round ASC",
+        (start, end)
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_latest_pension_round() -> int:
+    """연금복권 DB 최신 회차 (없으면 0)"""
+    conn = get_db()
+    row = conn.execute("SELECT MAX(round) as max_round FROM tbl_pension_draw").fetchone()
+    conn.close()
+    return row["max_round"] or 0
+
+
+# ── 연금복권 주간 추천번호 CRUD ──────────────────────
+
+def save_pension_weekly_recommend(target_round: int, games: list) -> int:
+    """연금복권 주간 추천번호 저장 → id 반환. 이미 존재하면 덮어씀"""
+    conn = get_db()
+    cur = conn.execute("""
+        INSERT OR REPLACE INTO tbl_pension_weekly_recommend
+            (target_round, games, sent_at)
+        VALUES (?, ?, datetime('now','localtime'))
+    """, (target_round, json.dumps(games, ensure_ascii=False)))
+    new_id = cur.lastrowid
+    conn.commit()
+    conn.close()
+    return new_id
+
+
+def get_pension_weekly_recommend(target_round: int):
+    """특정 회차 연금복권 추천번호 조회"""
+    conn = get_db()
+    row = conn.execute(
+        "SELECT * FROM tbl_pension_weekly_recommend WHERE target_round = ?", (target_round,)
+    ).fetchone()
+    conn.close()
+    if not row:
+        return None
+    d = dict(row)
+    d["games"] = json.loads(d["games"])
+    if d["result_detail"]:
+        d["result_detail"] = json.loads(d["result_detail"])
+    return d
+
+
+def get_pension_pending_result_rounds() -> list:
+    """실제 당첨번호는 있는데 결과 기록이 안 된 연금복권 추천 회차"""
+    conn = get_db()
+    rows = conn.execute("""
+        SELECT w.* FROM tbl_pension_weekly_recommend w
+        JOIN tbl_pension_draw d ON d.round = w.target_round
+        WHERE w.result_detail IS NULL
+    """).fetchall()
+    conn.close()
+    result = []
+    for row in rows:
+        d = dict(row)
+        d["games"] = json.loads(d["games"])
+        result.append(d)
+    return result
+
+
+def update_pension_weekly_result(
+    target_round: int,
+    actual_grp: int,
+    actual_num: str,
+    actual_bonus: str,
+    result_detail: list,
+):
+    """연금복권 추천번호 결과 업데이트"""
+    conn = get_db()
+    conn.execute("""
+        UPDATE tbl_pension_weekly_recommend
+        SET actual_grp = ?, actual_num = ?, actual_bonus = ?,
+            result_detail = ?, result_sent_at = datetime('now','localtime')
+        WHERE target_round = ?
+    """, (
+        actual_grp,
+        actual_num,
+        actual_bonus,
+        json.dumps(result_detail, ensure_ascii=False),
         target_round,
     ))
     conn.commit()

@@ -1,0 +1,76 @@
+.pension-draws-page {
+  padding: 24px;
+  max-width: 900px;
+}
+
+.page-title { font-size: 22px; font-weight: 700; color: #2ecc71; margin-bottom: 8px; }
+.draws-meta { font-size: 12px; color: #778; margin-bottom: 20px; }
+
+.pension-draws-table {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pension-draws-header {
+  display: grid;
+  grid-template-columns: 70px 100px 50px 1fr 1fr;
+  gap: 12px;
+  padding: 8px 16px;
+  background: #1e3a1e;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #778;
+  text-transform: uppercase;
+}
+
+.pension-draws-row {
+  display: grid;
+  grid-template-columns: 70px 100px 50px 1fr 1fr;
+  gap: 12px;
+  padding: 8px 16px;
+  background: #121f12;
+  border: 1px solid #1e3a1e;
+  border-radius: 8px;
+  align-items: center;
+}
+
+.pension-draws-row:hover { background: #1a2e1a; }
+
+.draws-round { font-weight: 700; color: #2ecc71; font-size: 13px; }
+.draws-date { color: #778; font-size: 12px; }
+.draws-grp { font-weight: 800; color: #2ecc71; font-size: 15px; }
+.draws-num { font-family: 'Courier New', monospace; font-size: 16px; letter-spacing: 2px; color: #eee; font-weight: 700; }
+.draws-bonus { font-family: 'Courier New', monospace; font-size: 13px; color: #778; letter-spacing: 1px; }
+
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  justify-content: center;
+}
+
+.pagination button {
+  background: #1e3a1e;
+  border: 1px solid #2d5a2d;
+  color: #2ecc71;
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.pagination button:disabled { opacity: 0.4; cursor: not-allowed; }
+.pagination span { color: #778; font-size: 13px; }
+.page-loading { padding: 48px; text-align: center; color: #778; }
+
+@media (max-width: 768px) {
+  .pension-draws-page { padding: 12px; }
+  .pension-draws-header, .pension-draws-row {
+    grid-template-columns: 55px 80px 40px 1fr;
+  }
+  .pension-draws-header span:last-child,
+  .pension-draws-row .draws-bonus { display: none; }
+}
