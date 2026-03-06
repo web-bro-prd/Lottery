@@ -1,7 +1,9 @@
 """
 디스코드 웹훅 전송 모듈 (embed 방식)
-- WEBHOOK_RECOMMEND : 매주 추천번호 전송
-- WEBHOOK_RESULT    : 당첨/낙첨 결과 전송
+- WEBHOOK_RECOMMEND         : 로또 매주 추천번호 전송
+- WEBHOOK_RESULT            : 로또 당첨/낙첨 결과 전송
+- WEBHOOK_PENSION_RECOMMEND : 연금복권 매주 추천번호 전송
+- WEBHOOK_PENSION_RESULT    : 연금복권 당첨/낙첨 결과 전송
 """
 import logging
 import requests
@@ -15,6 +17,14 @@ WEBHOOK_RECOMMEND = (
 WEBHOOK_RESULT = (
     "https://discord.com/api/webhooks/1478316807982157941/"
     "AWw9EWkeOBLF9SFfapNIo1DEsV6JrHEa3w81GMXi1FjEdt-rY8dd-2FslPc3Lhp2s8Cx"
+)
+WEBHOOK_PENSION_RECOMMEND = (
+    "https://discord.com/api/webhooks/1479376110256001066/"
+    "u2uEROrYee4VkJPGz9y0_tUkcB1Li2xV-PpeKIaUu4VBjZrfUh-b06LgQD4cIKTWyFEM"
+)
+WEBHOOK_PENSION_RESULT = (
+    "https://discord.com/api/webhooks/1479376257492844706/"
+    "lE3aT_4CbEEw9BhDHXgwFXXzBlGo9N5OwMBO_amp1s-gRXjf3YzzxA5eOMfHDR3-7uIo"
 )
 
 
@@ -215,7 +225,7 @@ def send_pension_weekly_numbers(
             "footer": {"text": "lottery.web-bro.com  |  매주 목요일 추첨"},
         }]
     }
-    return _post(WEBHOOK_RECOMMEND, payload)
+    return _post(WEBHOOK_PENSION_RECOMMEND, payload)
 
 
 # ── 연금복권 당첨/낙첨 결과 전송 ──────────────────────
@@ -288,7 +298,7 @@ def send_pension_result(
             "footer": {"text": "lottery.web-bro.com"},
         }]
     }
-    return _post(WEBHOOK_RESULT, payload)
+    return _post(WEBHOOK_PENSION_RESULT, payload)
 
 
 # ── 오류 알림 ────────────────────────────────────
