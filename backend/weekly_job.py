@@ -244,16 +244,16 @@ def step3b_pension_recommend_and_send(latest_pension_round: int):
     latest_grp = latest_draw["grp"]
     latest_num = str(latest_draw["num"]).zfill(6)
 
-    games = weekly_pension_pick(draws, n_games=5)
+    pick = weekly_pension_pick(draws)  # 최적 1개 조합 반환
 
-    save_pension_weekly_recommend(next_round, games)
-    logger.info(f"[STEP3b] {next_round}회 연금복권 추천번호 DB 저장 완료")
+    save_pension_weekly_recommend(next_round, [pick])
+    logger.info(f"[STEP3b] {next_round}회 연금복권 추천번호 DB 저장 완료 — {pick['grp']}조 {pick['num']}")
 
     ok = send_pension_weekly_numbers(
         latest_round=latest_pension_round,
         latest_grp=latest_grp,
         latest_num=latest_num,
-        games=games,
+        pick=pick,
         next_round=next_round,
     )
     if ok:

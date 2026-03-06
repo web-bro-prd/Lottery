@@ -190,21 +190,22 @@ def send_pension_weekly_numbers(
     latest_round: int,
     latest_grp: int,
     latest_num: str,
-    games: list,          # [{"grp":2,"num":"331316","strategy":"frequency"}, ...]
+    pick: dict,           # {"grp":2,"num":"331316","strategy":"hot","score":72.5}
     next_round: int,
 ) -> bool:
-    """연금복권720+ 주간 추천번호 디스코드 전송"""
+    """연금복권720+ 주간 추천번호 디스코드 전송 (최적 1개 조합)"""
 
-    def _fmt_game(g: dict, idx: int) -> str:
-        strategy_tag = {
-            "frequency": "빈도",
-            "balanced":  "균형",
-            "random":    "랜덤",
-        }.get(g.get("strategy", ""), "")
-        tag = f"[{strategy_tag}] " if strategy_tag else ""
-        return f"`{idx:02d}`  {tag}**{g.get('grp', '?')}조**  `{str(g.get('num','?')).zfill(6)}`"
+    strategy_label = {
+        "hot":         "빈도 우선",
+        "prefix_fix":  "앞자리 패턴",
+        "sum_range":   "합계 범위",
+        "cold_hot":    "콜드-핫 혼합",
+        "random":      "랜덤",
+    }.get(pick.get("strategy", ""), pick.get("strategy", ""))
 
-    games_text = "\n".join(_fmt_game(g, i+1) for i, g in enumerate(games)) or "—"
+    score = pick.get("score", 0)
+    grp   = pick.get("grp", "?")
+    num   = str(pick.get("num", "000000")).zfill(6)
 
     payload = {
         "embeds": [{
@@ -217,8 +218,13 @@ def send_pension_weekly_numbers(
                     "inline": False,
                 },
                 {
-                    "name": f"🎰  추천번호 {len(games)}게임",
-                    "value": games_text,
+                    "name": "🎯  이번 주 최적 추천 (5장 구매)",
+                    "value": f"## **{grp}조  {num}**",
+                    "inline": False,
+                },
+                {
+                    "name": "📊  추천 근거",
+                    "value": f"전략: {strategy_label}  |  점수: {score:.1f}점",
                     "inline": False,
                 },
             ],
