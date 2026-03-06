@@ -43,8 +43,9 @@ export default function PensionStatsPage() {
         <div className="grp-bars">
           {Object.entries(stats.group_distribution)
             .sort(([a], [b]) => Number(a) - Number(b))
-            .map(([grp, cnt]) => {
-              const pct = Math.round(cnt / stats.total_draws * 100);
+            .map(([grp, val]) => {
+              const cnt = typeof val === 'object' ? (val as any).count : val;
+              const pct = typeof val === 'object' ? (val as any).pct : Math.round(cnt / stats.total_draws * 100);
               return (
                 <div className="grp-bar-row" key={grp}>
                   <span className="grp-label">{grp}조</span>

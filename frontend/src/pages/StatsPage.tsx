@@ -29,8 +29,8 @@ export default function StatsPage() {
   // 빈도 차트 데이터
   const freqData = Array.from({ length: 45 }, (_, i) => ({
     num: i + 1,
-    count: stats.frequency[i + 1]?.count ?? 0,
-    freq: stats.frequency[i + 1]?.frequency ?? 0,
+    count: stats.frequency[String(i + 1)]?.count ?? 0,
+    freq: stats.frequency[String(i + 1)]?.frequency ?? 0,
   }));
 
   // 홀짝 파이 데이터
