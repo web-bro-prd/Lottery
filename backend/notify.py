@@ -224,7 +224,7 @@ def send_pension_weekly_numbers(
                 },
                 {
                     "name": "📊  추천 근거",
-                    "value": f"전략: {strategy_label}  |  점수: {score:.1f}점",
+                    "value": f"후보 20개 중 최적 선정  |  전략: {strategy_label}",
                     "inline": False,
                 },
             ],
