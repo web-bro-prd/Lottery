@@ -218,8 +218,8 @@ def send_pension_weekly_numbers(
                     "inline": False,
                 },
                 {
-                    "name": "🎯  이번 주 최적 추천 (5장 구매)",
-                    "value": f"## **{grp}조  {num}**",
+                    "name": "🎯  이번 주 최적 추천 (모든조 5장씩)",
+                    "value": f"## **모든조(1~5)  {num}**",
                     "inline": False,
                 },
                 {
