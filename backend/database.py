@@ -193,6 +193,21 @@ def get_all_fixed_numbers() -> list[dict]:
     return result
 
 
+def get_latest_fixed_number() -> dict | None:
+    """가장 최근에 저장된 고정번호 1개 조회"""
+    conn = get_db()
+    row = conn.execute(
+        "SELECT * FROM tbl_fixed_number ORDER BY created_at DESC, id DESC LIMIT 1"
+    ).fetchone()
+    conn.close()
+    if not row:
+        return None
+    d = dict(row)
+    d["numbers"] = [d["num1"], d["num2"], d["num3"], d["num4"], d["num5"], d["num6"]]
+    d["rationale"] = json.loads(d["rationale"]) if d["rationale"] else {}
+    return d
+
+
 def delete_fixed_number(fixed_id: int) -> bool:
     """고정번호 삭제 → 성공 여부"""
     conn = get_db()

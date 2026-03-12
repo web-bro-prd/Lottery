@@ -196,16 +196,17 @@ def send_pension_weekly_numbers(
     """연금복권720+ 주간 추천번호 디스코드 전송 (최적 1개 조합)"""
 
     strategy_label = {
-        "hot":         "빈도 우선",
-        "prefix_fix":  "앞자리 패턴",
-        "sum_range":   "합계 범위",
-        "cold_hot":    "콜드-핫 혼합",
+        "frequency":   "혼합 빈도",
+        "balanced":    "균형 안정",
+        "diverse":     "다양성 우선",
         "random":      "랜덤",
     }.get(pick.get("strategy", ""), pick.get("strategy", ""))
 
     score = pick.get("score", 0)
     grp   = pick.get("grp", "?")
     num   = str(pick.get("num", "000000")).zfill(6)
+    rationale = pick.get("rationale") or []
+    rationale_text = " / ".join(rationale[:3]) if rationale else "최근/전체 자릿수 분포와 최근 당첨번호 과유사 회피 기준"
 
     payload = {
         "embeds": [{
@@ -224,7 +225,7 @@ def send_pension_weekly_numbers(
                 },
                 {
                     "name": "📊  추천 근거",
-                    "value": f"후보 20개 중 최적 선정  |  전략: {strategy_label}",
+                    "value": f"전략: {strategy_label}  |  점수: {score}\n{rationale_text}",
                     "inline": False,
                 },
             ],

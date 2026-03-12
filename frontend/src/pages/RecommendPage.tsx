@@ -5,6 +5,7 @@ import LottoBall from '../components/LottoBall';
 import './RecommendPage.css';
 
 const STRATEGY_LABELS: Record<string, string> = {
+  smart:     '스마트 추천',
   frequency: '빈도 기반',
   trend:     '트렌드 기반',
   balanced:  '균형 추천',
@@ -12,6 +13,7 @@ const STRATEGY_LABELS: Record<string, string> = {
 };
 
 const STRATEGY_DESC: Record<string, string> = {
+  smart:     '백테스트 기반 조건 예측 결과를 바탕으로, 서로 지나치게 겹치지 않게 조합을 다시 정렬합니다.',
   frequency: '역대 출현 빈도가 높은 번호에 높은 가중치를 부여합니다.',
   trend:     '최근 N회에서 상대적으로 자주 나온 번호를 우선합니다.',
   balanced:  '홀/짝, 고/저, 구간 분산을 맞춘 균형 조합입니다.',

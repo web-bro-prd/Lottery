@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 from database import (
     init_db, get_latest_round, get_all_draws,
     save_weekly_recommend, get_pending_result_rounds, update_weekly_result,
-    get_all_fixed_numbers,
+    save_fixed_number, get_latest_fixed_number,
     # 연금복권
     get_latest_pension_round, get_all_pension_draws, upsert_pension_draw,
     save_pension_weekly_recommend, get_pension_pending_result_rounds,
@@ -41,7 +41,7 @@ from database import (
 )
 from collector import fetch_latest_round, collect_range
 from database import upsert_draw
-from analysis.backtest import weekly_pick
+from analysis.backtest import weekly_pick, generate_fixed_number
 from pension_collector import fetch_new_pension_draws
 from pension_analysis import check_pension_rank
 from pension_recommender import weekly_pension_pick
@@ -148,8 +148,21 @@ def step3_recommend_and_send(latest_round: int):
     ]
     latest_bonus = latest_draw["bonus"]
 
+    fixed = get_latest_fixed_number()
+    if fixed:
+        logger.info(f"[STEP3] 저장된 고정번호 재사용 — {fixed['numbers']}")
+    else:
+        fixed = generate_fixed_number(draws)
+        save_fixed_number({
+            "numbers": fixed["numbers"],
+            "score": fixed.get("score"),
+            "rationale": fixed.get("rationale", {}),
+            "memo": "주간 작업 최초 발급 고정번호",
+        })
+        logger.info(f"[STEP3] 저장된 고정번호 없음 — 최초 발급 후 저장 {fixed['numbers']}")
+
     # weekly_pick(): 고정 1 + 조건 추천 4 + 패턴 5
-    result = weekly_pick(draws)
+    result = weekly_pick(draws, fixed_override=fixed)
     fixed_numbers   = result["fixed"]["numbers"]
     condition_games = result["condition"]["games"]   # list[list[int]], 4게임
     pattern_games   = result["pattern"]["games"]     # list[list[int]], 5게임

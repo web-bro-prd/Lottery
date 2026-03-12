@@ -19,7 +19,8 @@ from pydantic import BaseModel
 from config import settings
 from database import (
     init_db, get_all_draws, get_draws_by_range, upsert_draw, get_latest_round,
-    save_fixed_number, get_all_fixed_numbers, delete_fixed_number, update_fixed_number_memo,
+    save_fixed_number, get_all_fixed_numbers, get_latest_fixed_number,
+    delete_fixed_number, update_fixed_number_memo,
     # 연금복권
     upsert_pension_draw, get_all_pension_draws, get_pension_draws_by_range,
     get_latest_pension_round, save_pension_weekly_recommend,
@@ -48,7 +49,14 @@ from analysis.backtest import (
     run_pattern_sim, weekly_pick,
     METHODS, CONDITION_LABELS,
 )
-from recommender.engine import recommend_all, recommend_by_frequency, recommend_by_trend, recommend_balanced, recommend_random
+from recommender.engine import (
+    recommend_all,
+    recommend_smart,
+    recommend_by_frequency,
+    recommend_by_trend,
+    recommend_balanced,
+    recommend_random,
+)
 
 # ── 비동기 작업 큐 (메모리) ──
 _tasks: dict = {}   # task_id → {"status": "running"|"done"|"error", "result": ..., "error": ...}
@@ -115,7 +123,7 @@ class MonteCarloRequest(BaseModel):
 
 
 class RecommendRequest(BaseModel):
-    strategy: str = "all"   # all | frequency | trend | balanced | random
+    strategy: str = "all"   # all | smart | frequency | trend | balanced | random
     games: int = 5
     recent_n: int = 50
 
@@ -380,14 +388,16 @@ def sim_montecarlo(req: MonteCarloRequest):
 @app.post("/api/recommend")
 def recommend(req: RecommendRequest):
     """번호 추천"""
-    valid_strategies = {"all", "frequency", "trend", "balanced", "random"}
+    valid_strategies = {"all", "smart", "frequency", "trend", "balanced", "random"}
     if req.strategy not in valid_strategies:
         raise HTTPException(status_code=400, detail=f"strategy는 {valid_strategies} 중 하나")
 
     draws = get_all_draws()
 
     if req.strategy == "all":
-        return recommend_all(draws, games=req.games)
+        return recommend_all(draws, games=req.games, recent_n=req.recent_n)
+    elif req.strategy == "smart":
+        return recommend_smart(draws, games=req.games, recent_n=req.recent_n)
     elif req.strategy == "frequency":
         return recommend_by_frequency(draws, games=req.games)
     elif req.strategy == "trend":
@@ -610,7 +620,16 @@ def backtest_weekly_pick():
     if len(draws) < 15:
         raise HTTPException(status_code=400, detail="데이터 부족 (최소 15회 필요)")
     try:
-        return weekly_pick(draws)
+        fixed = get_latest_fixed_number()
+        if not fixed:
+            fixed = generate_fixed_number(draws)
+            save_fixed_number({
+                "numbers": fixed["numbers"],
+                "score": fixed.get("score"),
+                "rationale": fixed.get("rationale", {}),
+                "memo": "주간 추천 최초 발급 고정번호",
+            })
+        return weekly_pick(draws, fixed_override=fixed)
     except Exception as e:
         logger.error(f"[weekly_pick] 오류: {e}")
         raise HTTPException(status_code=500, detail=str(e))

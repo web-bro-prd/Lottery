@@ -145,6 +145,7 @@ export interface RecommendResult {
 }
 
 export interface AllRecommendResult {
+  smart: RecommendResult;
   frequency: RecommendResult;
   trend: RecommendResult;
   balanced: RecommendResult;

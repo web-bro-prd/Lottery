@@ -1532,7 +1532,7 @@ def analyze_winning_conditions(draws: list[dict]) -> dict:
     }
 
 
-def weekly_pick(draws: list[dict]) -> dict:
+def weekly_pick(draws: list[dict], fixed_override: dict | None = None) -> dict:
     """
     이번 주 추천 10게임 통합 반환
 
@@ -1561,7 +1561,7 @@ def weekly_pick(draws: list[dict]) -> dict:
     draws_sorted = sorted(draws, key=lambda d: d["round"])
 
     # 1. 고정번호
-    fixed = generate_fixed_number(draws_sorted)
+    fixed = fixed_override or generate_fixed_number(draws_sorted)
 
     # 2. 조건 기반 4조 (WEIGHTED_RECENT, window=min(600, len))
     window = min(600, len(draws_sorted) - 1)
